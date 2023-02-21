@@ -1,0 +1,153 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Message {
+  """Unique identifier for the message"""
+  id: ID!
+
+  """Content of the message"""
+  content: String!
+
+  """Date when the message was created"""
+  createdAt: DateTime!
+
+  """The user who created the message."""
+  user: User
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type User {
+  """Unique identifier for the resource."""
+  id: ID!
+
+  """Date and time when the resource was created."""
+  createdAt: DateTime!
+
+  """Date and time when the resource was last updated."""
+  updatedAt: DateTime!
+
+  """Username of user"""
+  username: String!
+
+  """Name of user"""
+  name: String!
+}
+
+type TokensOutput {
+  """Access Token of user"""
+  accessToken: String!
+
+  """Access Token of user"""
+  refreshToken: String!
+}
+
+type SignInOutput {
+  """Access Token of user"""
+  accessToken: String!
+
+  """Access Token of user"""
+  refreshToken: String!
+
+  """Current user"""
+  user: User!
+}
+
+type SignUpOutput {
+  """Access Token of user"""
+  accessToken: String!
+
+  """Access Token of user"""
+  refreshToken: String!
+
+  """Current user"""
+  user: User!
+}
+
+type Query {
+  """Get a user by args"""
+  FindOneUser(input: FindOneUserInput!): User
+
+  """Logout current user"""
+  Logout: Boolean!
+
+  """Get current user"""
+  Profile: User
+
+  """Refresh Tokens of current user"""
+  RefreshTokens: TokensOutput!
+
+  """Find one message by id."""
+  FindOneMessage(
+    """Id of message"""
+    id: ID
+  ): Message
+}
+
+input FindOneUserInput {
+  """Username of user"""
+  id: ID
+
+  """Username of user"""
+  username: String
+}
+
+type Mutation {
+  """Update a user"""
+  UpdateUser(input: UpdateUserInput!): User
+
+  """Delete a user"""
+  DeleteUser: User
+
+  """Sign up User"""
+  SignUp(input: CreateUserInput!): SignUpOutput!
+
+  """Sign in User"""
+  SignIn(
+    """Username of user"""
+    username: String!
+
+    """Password of user"""
+    password: String!
+  ): SignInOutput!
+
+  """Create a new message."""
+  CreateMessage(input: CreateMessageInput!): Message!
+
+  """Delete a message by id."""
+  DeleteMessage(
+    """Id of message"""
+    id: ID
+  ): ID
+}
+
+input UpdateUserInput {
+  """Username of user"""
+  username: String
+
+  """Name of user"""
+  name: String
+
+  """Password of user"""
+  password: String
+}
+
+input CreateUserInput {
+  """Username of user"""
+  username: String!
+
+  """Name of user"""
+  name: String!
+
+  """Password of user"""
+  password: String!
+}
+
+input CreateMessageInput {
+  """Content of the message"""
+  content: String!
+}
