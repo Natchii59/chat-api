@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql'
-import { Matches, MaxLength, ValidateIf } from 'class-validator'
+import { Matches, ValidateIf } from 'class-validator'
 import { Transform } from 'class-transformer'
 
 import { User } from '../entities/user.entity'
@@ -14,13 +14,6 @@ export class UpdateUserInput {
   @ValidateIf((_o, v) => v !== undefined)
   @Transform(({ value }) => (value ? value.toLowerCase() : value))
   username?: User['username']
-
-  @Field(() => String, { description: 'Name of user', nullable: true })
-  @MaxLength(50, {
-    message: 'The name must contain at most 50 characters.'
-  })
-  @ValidateIf((_o, v) => v !== undefined)
-  name?: User['name']
 
   @Field(() => String, { description: 'Password of user', nullable: true })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*\W).{12,}$/, {

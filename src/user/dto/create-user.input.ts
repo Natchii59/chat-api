@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql'
-import { Matches, MaxLength } from 'class-validator'
+import { Matches } from 'class-validator'
 import { Transform } from 'class-transformer'
 
 import { User } from '../entities/user.entity'
@@ -13,12 +13,6 @@ export class CreateUserInput {
   })
   @Transform(({ value }) => value.toLowerCase())
   username: User['username']
-
-  @Field(() => String, { description: 'Name of user' })
-  @MaxLength(50, {
-    message: 'The name must contain at most 50 characters.'
-  })
-  name: User['name']
 
   @Field(() => String, { description: 'Password of user' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*\W).{12,}$/, {

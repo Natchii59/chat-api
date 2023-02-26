@@ -1,30 +1,16 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql'
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-  RelationId
-} from 'typeorm'
+import { ObjectType, Field } from '@nestjs/graphql'
+import { Column, Entity, JoinColumn, ManyToOne, RelationId } from 'typeorm'
 
 import { User } from '@/user/entities/user.entity'
+import { Conversation } from '@/conversation/entities/conversation.entity'
+import { Node } from '@/database/entities/node.entity'
 
 @Entity()
 @ObjectType()
-export class Message {
-  @PrimaryGeneratedColumn('uuid')
-  @Field(() => ID, { description: 'Unique identifier for the message' })
-  id: string
-
+export class Message extends Node {
   @Column()
   @Field(() => String, { description: 'Content of the message' })
   content: string
-
-  @CreateDateColumn({ name: 'created_at' })
-  @Field(() => Date, { description: 'Date when the message was created' })
-  createdAt: Date
 
   @ManyToOne(() => User, (user) => user.messages, {
     onDelete: 'CASCADE'
@@ -34,4 +20,13 @@ export class Message {
 
   @RelationId((message: Message) => message.user)
   userId: User['id']
+
+  @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'conversation_id' })
+  conversation: Conversation
+
+  @RelationId((message: Message) => message.conversation)
+  conversationId: Conversation['id']
 }

@@ -116,4 +116,14 @@ export class AuthService {
 
     return tokens
   }
+
+  async verifyAccessToken(token: string): Promise<UserPayload> {
+    try {
+      return await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_ACCESS_TOKEN_SECRET
+      })
+    } catch (error) {
+      throw new UnauthorizedException()
+    }
+  }
 }

@@ -9,6 +9,9 @@ import { UserModule } from './user/user.module'
 import { AuthModule } from './auth/auth.module'
 import { IGraphQLError } from './utils/types'
 import { MessageModule } from './message/message.module'
+import { ConversationModule } from './conversation/conversation.module'
+import { GatewayModule } from './gateway/gateway.module'
+import { EventEmitterModule } from '@nestjs/event-emitter'
 
 @Module({
   imports: [
@@ -39,9 +42,12 @@ import { MessageModule } from './message/message.module'
         return error
       }
     }),
+    EventEmitterModule.forRoot(),
     UserModule,
     AuthModule,
-    MessageModule
+    MessageModule,
+    ConversationModule,
+    GatewayModule
   ]
 })
 export class AppModule {}

@@ -1,5 +1,12 @@
 import { Inject, UseGuards } from '@nestjs/common'
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql'
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  ResolveField,
+  Parent
+} from '@nestjs/graphql'
 
 import { UserService } from './user.service'
 import { User } from './entities/user.entity'
@@ -8,11 +15,15 @@ import { FindOneUserInput } from './dto/findone-user.input'
 import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { UserPayload } from '@/auth/dto/payload-user.dto'
 import { Services } from '@/utils/constants'
+import { ConversationService } from '@/conversation/conversation.service'
+import { Conversation } from '@/conversation/entities/conversation.entity'
 
 @Resolver(User)
 export class UserResolver {
   constructor(
-    @Inject(Services.USER) private readonly userService: UserService
+    @Inject(Services.USER) private readonly userService: UserService,
+    @Inject(Services.CONVERSATION)
+    private readonly conversationService: ConversationService
   ) {}
 
   @Query(() => User, {
@@ -45,5 +56,31 @@ export class UserResolver {
   })
   async delete(@CurrentUser() user: UserPayload): Promise<User['id'] | null> {
     return await this.userService.delete(user.id)
+  }
+
+  @ResolveField(() => [Conversation], {
+    name: 'conversations',
+    description: 'Get all conversations of a user'
+  })
+  async conversations(@Parent() user: User): Promise<Conversation[]> {
+    return await this.conversationService.find({
+      where: [
+        {
+          user1: {
+            id: user.id
+          }
+        },
+        {
+          user2: {
+            id: user.id
+          }
+        }
+      ],
+      order: {
+        messages: {
+          createdAt: 'DESC'
+        }
+      }
+    })
   }
 }

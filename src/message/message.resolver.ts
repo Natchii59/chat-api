@@ -8,6 +8,7 @@ import {
   ResolveField,
   Parent
 } from '@nestjs/graphql'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 
 import { MessageService } from './message.service'
 import { Message } from './entities/message.entity'
@@ -19,12 +20,21 @@ import { UserPayload } from '@/auth/dto/payload-user.dto'
 import { Services } from '@/utils/constants'
 import { User } from '@/user/entities/user.entity'
 import { UserService } from '@/user/user.service'
+import { Conversation } from '@/conversation/entities/conversation.entity'
+import { ConversationService } from '@/conversation/conversation.service'
+import {
+  PaginationMessage,
+  PaginationMessageArgs
+} from './dto/pagination-message.dto'
 
 @Resolver(Message)
 export class MessageResolver {
   constructor(
     @Inject(Services.MESSAGE) private readonly messageService: MessageService,
-    @Inject(Services.USER) private readonly userService: UserService
+    @Inject(Services.USER) private readonly userService: UserService,
+    @Inject(Services.CONVERSATION)
+    private readonly conversationService: ConversationService,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -50,8 +60,10 @@ export class MessageResolver {
     @CurrentUser() user: UserPayload
   ): Promise<Message | null> {
     return await this.messageService.findOne({
-      id: args.id,
-      user: { id: user.id }
+      where: {
+        id: args.id,
+        user: { id: user.id }
+      }
     })
   }
 
@@ -74,5 +86,30 @@ export class MessageResolver {
   })
   async user(@Parent() message: Message): Promise<User> {
     return await this.userService.findOne({ id: message.userId })
+  }
+
+  @ResolveField(() => Conversation, {
+    name: 'conversation',
+    description: 'The conversation the message belongs to.',
+    nullable: true
+  })
+  async conversation(@Parent() message: Message): Promise<Conversation> {
+    return await this.conversationService.findOne({
+      where: {
+        id: message.conversationId
+      }
+    })
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Query(() => PaginationMessage, {
+    name: 'PaginationMessage',
+    description: 'Pagination of messages.'
+  })
+  async pagination(
+    @Args() args: PaginationMessageArgs,
+    @CurrentUser() user: UserPayload
+  ): Promise<PaginationMessage> {
+    return await this.messageService.pagination(args, user.id)
   }
 }

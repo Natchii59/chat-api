@@ -2,24 +2,50 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Message {
-  """Unique identifier for the message"""
+type Conversation {
+  """Unique identifier for the resource."""
   id: ID!
 
-  """Content of the message"""
-  content: String!
-
-  """Date when the message was created"""
+  """Date and time when the resource was created."""
   createdAt: DateTime!
 
-  """The user who created the message."""
-  user: User
+  """Date and time when the resource was last updated."""
+  updatedAt: DateTime!
+
+  """Get the first user of the conversation."""
+  user1: User!
+
+  """Get the second user of the conversation."""
+  user2: User!
+
+  """Get the last message of the conversation."""
+  lastMessage: Message
 }
 
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+type Message {
+  """Unique identifier for the resource."""
+  id: ID!
+
+  """Date and time when the resource was created."""
+  createdAt: DateTime!
+
+  """Date and time when the resource was last updated."""
+  updatedAt: DateTime!
+
+  """Content of the message"""
+  content: String!
+
+  """The user who created the message."""
+  user: User
+
+  """The conversation the message belongs to."""
+  conversation: Conversation
+}
 
 type User {
   """Unique identifier for the resource."""
@@ -34,8 +60,14 @@ type User {
   """Username of user"""
   username: String!
 
-  """Name of user"""
-  name: String!
+  """Get all conversations of a user"""
+  conversations: [Conversation!]!
+}
+
+type PaginationMessage {
+  """Total number of nodes"""
+  totalCount: Int!
+  nodes: [Message!]!
 }
 
 type TokensOutput {
@@ -72,6 +104,31 @@ type Query {
   """Get a user by args"""
   FindOneUser(input: FindOneUserInput!): User
 
+  """Find one conversation by id."""
+  FindOneConversation(
+    """Id of conversation"""
+    id: ID
+  ): Conversation
+
+  """Find one message by id."""
+  FindOneMessage(
+    """Id of message"""
+    id: ID
+  ): Message
+
+  """Pagination of messages."""
+  PaginationMessage(
+    """Skip the first n nodes"""
+    skip: Int!
+
+    """Take the first n nodes"""
+    take: Int!
+
+    """Sort nodes"""
+    sortBy: PaginationSortBy
+    where: [PaginationMessageWhere]
+  ): PaginationMessage!
+
   """Logout current user"""
   Logout: Boolean!
 
@@ -80,12 +137,6 @@ type Query {
 
   """Refresh Tokens of current user"""
   RefreshTokens: TokensOutput!
-
-  """Find one message by id."""
-  FindOneMessage(
-    """Id of message"""
-    id: ID
-  ): Message
 }
 
 input FindOneUserInput {
@@ -96,12 +147,51 @@ input FindOneUserInput {
   username: String
 }
 
+input PaginationSortBy {
+  """Sort by date of creation"""
+  createdAt: SortDirection
+
+  """Sort by date of last update"""
+  updatedAt: SortDirection
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+input PaginationMessageWhere {
+  """Filter by id"""
+  id: ID
+
+  """Filter by Conversation Id"""
+  conversationId: ID
+}
+
 type Mutation {
   """Update a user"""
   UpdateUser(input: UpdateUserInput!): User
 
   """Delete a user"""
   DeleteUser: User
+
+  """Create a new conversation."""
+  CreateConversation(input: CreateConversationInput!): Conversation!
+
+  """Delete a conversation by id."""
+  DeleteConversation(
+    """Id of conversation"""
+    id: ID
+  ): ID
+
+  """Create a new message."""
+  CreateMessage(input: CreateMessageInput!): Message!
+
+  """Delete a message by id."""
+  DeleteMessage(
+    """Id of message"""
+    id: ID
+  ): ID
 
   """Sign up User"""
   SignUp(input: CreateUserInput!): SignUpOutput!
@@ -114,40 +204,33 @@ type Mutation {
     """Password of user"""
     password: String!
   ): SignInOutput!
-
-  """Create a new message."""
-  CreateMessage(input: CreateMessageInput!): Message!
-
-  """Delete a message by id."""
-  DeleteMessage(
-    """Id of message"""
-    id: ID
-  ): ID
 }
 
 input UpdateUserInput {
   """Username of user"""
   username: String
 
-  """Name of user"""
-  name: String
-
   """Password of user"""
   password: String
+}
+
+input CreateConversationInput {
+  """The user that will be part of the conversation."""
+  userId: ID!
+}
+
+input CreateMessageInput {
+  """Content of the message"""
+  content: String!
+
+  """ID of the conversation"""
+  conversationId: ID!
 }
 
 input CreateUserInput {
   """Username of user"""
   username: String!
 
-  """Name of user"""
-  name: String!
-
   """Password of user"""
   password: String!
-}
-
-input CreateMessageInput {
-  """Content of the message"""
-  content: String!
 }

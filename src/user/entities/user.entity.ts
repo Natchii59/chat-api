@@ -1,8 +1,9 @@
 import { ObjectType, Field } from '@nestjs/graphql'
-import { Column, Entity, OneToMany } from 'typeorm'
+import { Column, Entity, ManyToMany, OneToMany } from 'typeorm'
 
 import { Node } from '@/database/entities/node.entity'
 import { Message } from '@/message/entities/message.entity'
+import { Conversation } from '@/conversation/entities/conversation.entity'
 
 @Entity()
 @ObjectType()
@@ -12,10 +13,6 @@ export class User extends Node {
   username: string
 
   @Column()
-  @Field(() => String, { description: 'Name of user' })
-  name: string
-
-  @Column()
   password: string
 
   @Column({ name: 'resfresh_token', nullable: true })
@@ -23,4 +20,10 @@ export class User extends Node {
 
   @OneToMany(() => Message, (message) => message.user)
   messages: Message[]
+
+  @ManyToMany(
+    () => Conversation,
+    (conversation) => conversation.user1 || conversation.user2
+  )
+  conversations: Conversation[]
 }
