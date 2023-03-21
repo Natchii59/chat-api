@@ -6,7 +6,7 @@ import { User } from '../entities/user.entity'
 
 @InputType()
 export class FindOneUserInput {
-  @Field(() => ID, { description: 'Username of user', nullable: true })
+  @Field(() => ID, { description: 'Id of user', nullable: true })
   @IsUUID('all', {
     message: 'The id must be a UUID.'
   })

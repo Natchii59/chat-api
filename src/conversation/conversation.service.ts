@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
+import { orderBy, get } from 'lodash'
 
 import { CreateConversationInput } from './dto/create-conversation.input'
 import { Conversation } from './entities/conversation.entity'
@@ -43,5 +44,44 @@ export class ConversationService {
     if (result.affected) return id
 
     return null
+  }
+
+  async getUserConversations(
+    userId: User['id']
+  ): Promise<Conversation[] | null> {
+    const result = await this.conversationRepository.find({
+      where: [
+        {
+          user1: {
+            id: userId
+          }
+        },
+        {
+          user2: {
+            id: userId
+          }
+        }
+      ],
+      order: {
+        messages: {
+          createdAt: 'DESC'
+        }
+      },
+      relations: ['messages']
+    })
+
+    return orderBy(
+      result,
+      (conversation) => {
+        const lastMessage = get(conversation, 'messages[0]', null)
+
+        if (lastMessage) {
+          return lastMessage.createdAt
+        }
+
+        return conversation.createdAt
+      },
+      'desc'
+    )
   }
 }

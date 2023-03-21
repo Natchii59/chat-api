@@ -85,7 +85,7 @@ export class MessageResolver {
     nullable: true
   })
   async user(@Parent() message: Message): Promise<User> {
-    return await this.userService.findOne({ id: message.userId })
+    return await this.userService.findOne({ where: { id: message.userId } })
   }
 
   @ResolveField(() => Conversation, {

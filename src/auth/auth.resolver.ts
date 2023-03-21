@@ -61,7 +61,9 @@ export class AuthResolver {
     nullable: true
   })
   async profile(@CurrentUser() currentUser: UserPayload): Promise<User | null> {
-    return await this.userService.findOne({ id: currentUser.id })
+    return await this.userService.findOne({
+      where: { id: currentUser.id }
+    })
   }
 
   @UseGuards(JwtRefreshAuthGuard)

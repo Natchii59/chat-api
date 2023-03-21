@@ -26,7 +26,9 @@ export class AuthService {
     username: User['username'],
     password: User['password']
   ): Promise<UserPayload | null> {
-    const user = await this.userService.findOne({ username })
+    const user = await this.userService.findOne({
+      where: { username }
+    })
 
     if (user && (await compare(password, user.password))) {
       return {
@@ -56,7 +58,9 @@ export class AuthService {
     const tokens = await this.getTokens(payload)
     await this.updateRefreshToken(payload.id, tokens.refreshToken)
 
-    const user = await this.userService.findOne({ id: payload.id })
+    const user = await this.userService.findOne({
+      where: { id: payload.id }
+    })
 
     return {
       ...tokens,
@@ -98,7 +102,9 @@ export class AuthService {
     id: User['id'],
     refreshToken: User['refreshToken']
   ): Promise<TokensOutput> {
-    const user = await this.userService.findOne({ id })
+    const user = await this.userService.findOne({
+      where: { id }
+    })
 
     if (!user) throw new NotFoundException()
 

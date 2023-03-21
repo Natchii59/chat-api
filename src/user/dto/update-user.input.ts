@@ -23,5 +23,8 @@ export class UpdateUserInput {
   @ValidateIf((_o, v) => v !== undefined)
   password?: User['password']
 
+  @Field(() => String, { description: 'Avatar of user', nullable: true })
+  avatar?: User['avatar']
+
   refreshToken?: User['refreshToken']
 }

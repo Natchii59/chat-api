@@ -1,5 +1,5 @@
 import { ArgsType, Field, ID, InputType, ObjectType } from '@nestjs/graphql'
-import { IsUUID, ValidateIf, ValidateNested } from 'class-validator'
+import { IsDate, IsUUID, ValidateIf, ValidateNested } from 'class-validator'
 
 import { Message } from '../entities/message.entity'
 import {
@@ -18,6 +18,14 @@ export class PaginationMessageWhere extends PaginationWhere {
   })
   @ValidateIf((_o, v) => v !== undefined)
   conversationId?: Conversation['id']
+
+  @Field(() => Date, {
+    description: 'Filter by createdAt date',
+    nullable: true
+  })
+  @IsDate({ message: 'The createdAt must be a date.' })
+  @ValidateIf((_o, v) => v !== undefined)
+  createdAt?: Date
 }
 
 @ArgsType()

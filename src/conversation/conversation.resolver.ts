@@ -88,7 +88,9 @@ export class ConversationResolver {
   })
   async user1(@Parent() conversation: Conversation) {
     return this.userService.findOne({
-      id: conversation.user1Id
+      where: {
+        id: conversation.user1Id
+      }
     })
   }
 
@@ -98,7 +100,9 @@ export class ConversationResolver {
   })
   async user2(@Parent() conversation: Conversation) {
     return this.userService.findOne({
-      id: conversation.user2Id
+      where: {
+        id: conversation.user2Id
+      }
     })
   }
 

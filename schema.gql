@@ -60,8 +60,20 @@ type User {
   """Username of user"""
   username: String!
 
+  """Avatar of user"""
+  avatar: String
+
   """Get all conversations of a user"""
   conversations: [Conversation!]!
+
+  """Get all friends of a user"""
+  friends: [User!]
+
+  """Get all received requests of a user"""
+  receivedRequests: [User!]
+
+  """Get all sent requests of a user"""
+  sentRequests: [User!]
 }
 
 type PaginationMessage {
@@ -140,7 +152,7 @@ type Query {
 }
 
 input FindOneUserInput {
-  """Username of user"""
+  """Id of user"""
   id: ID
 
   """Username of user"""
@@ -166,6 +178,9 @@ input PaginationMessageWhere {
 
   """Filter by Conversation Id"""
   conversationId: ID
+
+  """Filter by createdAt date"""
+  createdAt: DateTime
 }
 
 type Mutation {
@@ -174,6 +189,36 @@ type Mutation {
 
   """Delete a user"""
   DeleteUser: User
+
+  """Accept a friend request"""
+  AcceptFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User
+
+  """Decline a friend request"""
+  DeclineFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User
+
+  """Cancel a friend request"""
+  CancelFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User
+
+  """Send a friend request"""
+  SendFriendRequest(
+    """Username of user"""
+    username: String!
+  ): User
+
+  """Remove a friend"""
+  RemoveFriend(
+    """Id of user"""
+    id: ID!
+  ): User
 
   """Create a new conversation."""
   CreateConversation(input: CreateConversationInput!): Conversation!
@@ -212,6 +257,9 @@ input UpdateUserInput {
 
   """Password of user"""
   password: String
+
+  """Avatar of user"""
+  avatar: String
 }
 
 input CreateConversationInput {

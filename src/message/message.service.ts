@@ -4,6 +4,7 @@ import {
   FindManyOptions,
   FindOneOptions,
   FindOptionsWhere,
+  LessThan,
   Repository
 } from 'typeorm'
 
@@ -72,6 +73,10 @@ export class MessageService {
               id: where.conversationId,
               user1: { id: userId }
             }
+          }
+
+          if (where.createdAt) {
+            whereObject.createdAt = LessThan(where.createdAt)
           }
 
           return whereObject
