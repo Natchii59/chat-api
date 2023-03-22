@@ -1,8 +1,10 @@
 import { Field, InputType } from '@nestjs/graphql'
 import { Matches, ValidateIf } from 'class-validator'
 import { Transform } from 'class-transformer'
+import * as GraphQLUpload from 'graphql-upload/GraphQLUpload.js'
 
 import { User } from '../entities/user.entity'
+import { FileUpload } from '@/utils/types'
 
 @InputType()
 export class UpdateUserInput {
@@ -23,8 +25,8 @@ export class UpdateUserInput {
   @ValidateIf((_o, v) => v !== undefined)
   password?: User['password']
 
-  @Field(() => String, { description: 'Avatar of user', nullable: true })
-  avatar?: User['avatar']
+  @Field(() => GraphQLUpload, { description: 'Avatar of user', nullable: true })
+  avatar?: Promise<FileUpload>
 
   refreshToken?: User['refreshToken']
 }

@@ -4,6 +4,7 @@ import { GraphQLModule } from '@nestjs/graphql'
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { join } from 'path'
+import { EventEmitterModule } from '@nestjs/event-emitter'
 
 import { UserModule } from './user/user.module'
 import { AuthModule } from './auth/auth.module'
@@ -11,7 +12,8 @@ import { IGraphQLError } from './utils/types'
 import { MessageModule } from './message/message.module'
 import { ConversationModule } from './conversation/conversation.module'
 import { GatewayModule } from './gateway/gateway.module'
-import { EventEmitterModule } from '@nestjs/event-emitter'
+import { ImageStorageModule } from './image-storage/image-storage.module'
+import { ImageModule } from './image/image.module';
 
 @Module({
   imports: [
@@ -47,7 +49,9 @@ import { EventEmitterModule } from '@nestjs/event-emitter'
     AuthModule,
     MessageModule,
     ConversationModule,
-    GatewayModule
+    GatewayModule,
+    ImageStorageModule,
+    ImageModule
   ]
 })
 export class AppModule {}

@@ -1,7 +1,8 @@
 import { genSalt, hash } from 'bcrypt'
 import { ValidationError } from 'class-validator'
+import * as sharp from 'sharp'
 
-import { IGraphQLErrorMessage } from './types'
+import { FileUpload, IGraphQLErrorMessage } from './types'
 
 export async function hashData(data: string): Promise<string> {
   const SALT = await genSalt()
@@ -22,4 +23,23 @@ export function formatErrorMessages(
   })
 
   return messages
+}
+
+export function formatImage(
+  file: Promise<FileUpload>,
+  width: number,
+  height?: number
+): Promise<Buffer> {
+  return new Promise(async (resolve) => {
+    const { createReadStream } = await file
+    const avatarStream = createReadStream()
+    const sharpTransform = sharp()
+      .resize(width, height ?? width)
+      .webp()
+
+    avatarStream.pipe(sharpTransform)
+    const buffer = await sharpTransform.toBuffer()
+
+    resolve(buffer)
+  })
 }

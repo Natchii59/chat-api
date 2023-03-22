@@ -1,16 +1,23 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { FindOneOptions, Repository } from 'typeorm'
+import { v4 } from 'uuid'
 
 import { CreateUserInput } from './dto/create-user.input'
 import { UpdateUserInput } from './dto/update-user.input'
 import { User } from './entities/user.entity'
-import { hashData } from '@/utils/functions'
+import { formatImage, hashData } from '@/utils/functions'
+import { Services } from '@/utils/constants'
+import { ImageStorageService } from '@/image-storage/image-storage.service'
+import { ImageService } from '@/image/image.service'
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @Inject(Services.IMAGE_STORAGE)
+    private readonly imageStorageService: ImageStorageService,
+    @Inject(Services.IMAGE) private readonly imageService: ImageService
   ) {}
 
   async create(input: CreateUserInput): Promise<User> {
@@ -38,13 +45,49 @@ export class UserService {
   }
 
   async update(id: User['id'], input: UpdateUserInput): Promise<User | null> {
+    const user = await this.findOne({
+      where: { id },
+      relations: input.avatar ? ['avatar'] : undefined
+    })
+
+    if (!user) return null
+
     if (input.password) input.password = await hashData(input.password)
 
-    const result = await this.userRepository.update(id, input)
+    if (input.avatar) {
+      const buffer = await formatImage(input.avatar, 200)
 
-    if (result.affected) return await this.userRepository.findOneBy({ id })
+      const key = v4()
 
-    return null
+      if (user.avatar) {
+        await this.imageStorageService.delete(`${id}/${user.avatar.key}`)
+
+        await this.imageService.delete(user.avatar.id)
+      }
+
+      await this.imageStorageService.upload({
+        mimetype: 'image/webp',
+        key: `${id}/${key}`,
+        buffer
+      })
+
+      const avatar = await this.imageService.create({
+        buffer,
+        key
+      })
+
+      user.avatar = avatar
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { avatar, ...restInput } = input
+
+    await this.userRepository.save({
+      ...user,
+      ...restInput
+    })
+
+    return user
   }
 
   async delete(id: User['id']): Promise<User['id'] | null> {

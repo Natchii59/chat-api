@@ -1,9 +1,19 @@
 import { ObjectType, Field } from '@nestjs/graphql'
-import { Column, Entity, JoinTable, ManyToMany, OneToMany } from 'typeorm'
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  OneToMany,
+  OneToOne,
+  RelationId
+} from 'typeorm'
 
 import { Node } from '@/database/entities/node.entity'
 import { Message } from '@/message/entities/message.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
+import { Image } from '@/image/entities/image.entity'
 
 @Entity()
 @ObjectType()
@@ -18,9 +28,12 @@ export class User extends Node {
   @Column({ name: 'resfresh_token', nullable: true })
   refreshToken?: string
 
-  @Column({ nullable: true })
-  @Field(() => String, { nullable: true, description: 'Avatar of user' })
-  avatar: string
+  @OneToOne(() => Image, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'avatar_id' })
+  avatar?: Image
+
+  @RelationId((user: User) => user.avatar)
+  avatarId?: string
 
   @OneToMany(() => Message, (message) => message.user)
   messages: Message[]

@@ -1,3 +1,5 @@
+import { Stream } from 'stream'
+
 export interface IGraphQLError {
   message: string
   statusCode: number
@@ -7,4 +9,11 @@ export interface IGraphQLError {
 export interface IGraphQLErrorMessage {
   code: string
   message: string
+}
+
+export interface FileUpload {
+  filename: string
+  mimetype: string
+  encoding: string
+  createReadStream: () => Stream
 }

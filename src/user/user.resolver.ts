@@ -21,13 +21,17 @@ import {
   FriendRequesUsertArgs,
   SendFriendRequestArgs
 } from './dto/friend-request-user.input'
+import { Image } from '@/image/entities/image.entity'
+import { ImageService } from '@/image/image.service'
 
 @Resolver(User)
 export class UserResolver {
   constructor(
     @Inject(Services.USER) private readonly userService: UserService,
     @Inject(Services.CONVERSATION)
-    private readonly conversationService: ConversationService
+    private readonly conversationService: ConversationService,
+    @Inject(Services.IMAGE)
+    private readonly imageService: ImageService
   ) {}
 
   @Query(() => User, {
@@ -162,5 +166,18 @@ export class UserResolver {
     @CurrentUser() user: UserPayload
   ): Promise<User | null> {
     return await this.userService.removeFriend(user.id, args.id)
+  }
+
+  @ResolveField(() => Image, {
+    name: 'avatar',
+    description: 'Avatar of a user',
+    nullable: true
+  })
+  async avatar(@Parent() user: User): Promise<Image | null> {
+    if (!user.avatarId) return null
+
+    return await this.imageService.findOne({
+      where: { id: user.avatarId }
+    })
   }
 }
