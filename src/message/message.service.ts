@@ -16,12 +16,15 @@ import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { Conversation } from '@/conversation/entities/conversation.entity'
 
 @Injectable()
 export class MessageService {
   constructor(
     @InjectRepository(Message)
-    private readonly messageRepository: Repository<Message>
+    private readonly messageRepository: Repository<Message>,
+    @InjectRepository(Conversation)
+    private readonly conversationRepository: Repository<Conversation>
   ) {}
 
   async create(
@@ -33,6 +36,24 @@ export class MessageService {
       user: { id: userId },
       conversation: { id: input.conversationId }
     })
+
+    const conversation = await this.conversationRepository.findOne({
+      where: {
+        id: input.conversationId
+      },
+      relations: ['closedBy', 'user1', 'user2']
+    })
+
+    const otherUser =
+      conversation.user1.id === userId ? conversation.user2 : conversation.user1
+
+    if (conversation.closedBy.some((user) => user.id === otherUser.id)) {
+      conversation.closedBy = conversation.closedBy.filter(
+        (user) => user.id !== otherUser.id
+      )
+
+      await this.conversationRepository.save(conversation)
+    }
 
     return await this.messageRepository.save(message)
   }

@@ -11,7 +11,10 @@ import { Inject, UseGuards } from '@nestjs/common'
 
 import { ConversationService } from './conversation.service'
 import { Conversation } from './entities/conversation.entity'
-import { CreateConversationInput } from './dto/create-conversation.input'
+import {
+  CreateConversationInput,
+  CreateConversationOutput
+} from './dto/create-conversation.input'
 import { FindOneConversationArgs } from './dto/findone-conversation.input'
 import { DeleteConversationArgs } from './dto/delete-conversation.input'
 import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
@@ -21,6 +24,7 @@ import { User } from '@/user/entities/user.entity'
 import { UserService } from '@/user/user.service'
 import { Message } from '@/message/entities/message.entity'
 import { MessageService } from '@/message/message.service'
+import { CloseConversationArgs } from './dto/close-conversation.input'
 
 @Resolver(() => Conversation)
 export class ConversationResolver {
@@ -34,14 +38,14 @@ export class ConversationResolver {
   ) {}
 
   @UseGuards(JwtAuthGuard)
-  @Mutation(() => Conversation, {
+  @Mutation(() => CreateConversationOutput, {
     name: 'CreateConversation',
     description: 'Create a new conversation.'
   })
   async create(
     @Args('input') input: CreateConversationInput,
     @CurrentUser() user: UserPayload
-  ): Promise<Conversation> {
+  ): Promise<CreateConversationOutput> {
     return this.conversationService.create(input, user.id)
   }
 
@@ -122,5 +126,18 @@ export class ConversationResolver {
         createdAt: 'DESC'
       }
     })
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => Conversation, {
+    name: 'CloseConversation',
+    description: 'Close a conversation for user.',
+    nullable: true
+  })
+  async closeConversation(
+    @Args() args: CloseConversationArgs,
+    @CurrentUser() user: UserPayload
+  ) {
+    return this.conversationService.closeConversation(args.id, user.id)
   }
 }

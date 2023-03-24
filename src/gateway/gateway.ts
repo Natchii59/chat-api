@@ -17,6 +17,7 @@ import { Services } from '@/utils/constants'
 import { Message } from '@/message/entities/message.entity'
 import { ConversationService } from '@/conversation/conversation.service'
 import { User } from '@/user/entities/user.entity'
+import { Conversation } from '@/conversation/entities/conversation.entity'
 
 @WebSocketGateway({
   cors: {
@@ -77,7 +78,7 @@ export class GatewayGateway
   }
 
   @SubscribeMessage('createMessage')
-  async handleMessageCreate(@MessageBody() body: Message) {
+  async createMessage(@MessageBody() body: Message) {
     console.log(`${body.user.username} send message to ${body.conversation.id}`)
 
     this.server
@@ -292,5 +293,19 @@ export class GatewayGateway
         userId: data.userId
       })
     }
+  }
+
+  @SubscribeMessage('createConversation')
+  async createConversation(@MessageBody() body: Conversation) {
+    console.log(
+      `${body.user1.username} create conversation with ${body.user2.username}`
+    )
+
+    this.sessions
+      .getUserSocket(body.user1.id)
+      ?.emit('onConversationCreated', body)
+    this.sessions
+      .getUserSocket(body.user2.id)
+      ?.emit('onConversationCreated', body)
   }
 }

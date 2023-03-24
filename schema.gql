@@ -93,6 +93,14 @@ type User {
   avatar: Image
 }
 
+type CreateConversationOutput {
+  """The conversation created."""
+  conversation: Conversation!
+
+  """Whether the conversation was created or not."""
+  created: Boolean!
+}
+
 type PaginationMessage {
   """Total number of nodes"""
   totalCount: Int!
@@ -238,13 +246,19 @@ type Mutation {
   ): User
 
   """Create a new conversation."""
-  CreateConversation(input: CreateConversationInput!): Conversation!
+  CreateConversation(input: CreateConversationInput!): CreateConversationOutput!
 
   """Delete a conversation by id."""
   DeleteConversation(
     """Id of conversation"""
     id: ID
   ): ID
+
+  """Close a conversation for user."""
+  CloseConversation(
+    """Id of conversation"""
+    id: ID!
+  ): Conversation
 
   """Create a new message."""
   CreateMessage(input: CreateMessageInput!): Message!

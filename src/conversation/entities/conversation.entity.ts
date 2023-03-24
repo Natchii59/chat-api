@@ -1,5 +1,13 @@
 import { ObjectType } from '@nestjs/graphql'
-import { Entity, JoinColumn, ManyToOne, OneToMany, RelationId } from 'typeorm'
+import {
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+  RelationId
+} from 'typeorm'
 
 import { Node } from '@/database/entities/node.entity'
 import { User } from '@/user/entities/user.entity'
@@ -24,4 +32,18 @@ export class Conversation extends Node {
 
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[]
+
+  @ManyToMany(() => User, (user) => user.closedConversations)
+  @JoinTable({
+    name: 'closed_conversations',
+    joinColumn: {
+      name: 'conversation_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'user_id',
+      referencedColumnName: 'id'
+    }
+  })
+  closedBy: User[]
 }

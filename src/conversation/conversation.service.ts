@@ -3,30 +3,89 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 import { orderBy } from 'lodash'
 
-import { CreateConversationInput } from './dto/create-conversation.input'
+import {
+  CreateConversationInput,
+  CreateConversationOutput
+} from './dto/create-conversation.input'
 import { Conversation } from './entities/conversation.entity'
 import { User } from '@/user/entities/user.entity'
 import { Services } from '@/utils/constants'
 import { MessageService } from '@/message/message.service'
+import { UserService } from '@/user/user.service'
 
 @Injectable()
 export class ConversationService {
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
-    @Inject(Services.MESSAGE) private readonly messageService: MessageService
+    @Inject(Services.MESSAGE) private readonly messageService: MessageService,
+    @Inject(Services.USER) private readonly userService: UserService
   ) {}
 
   async create(
     input: CreateConversationInput,
     userId: User['id']
-  ): Promise<Conversation> {
+  ): Promise<CreateConversationOutput> {
+    const findConversation = await this.conversationRepository.findOne({
+      where: [
+        {
+          user1: {
+            id: userId
+          },
+          user2: {
+            id: input.userId
+          }
+        },
+        {
+          user1: {
+            id: input.userId
+          },
+          user2: {
+            id: userId
+          }
+        }
+      ],
+      relations: ['closedBy']
+    })
+
+    if (findConversation) {
+      const isClosed = findConversation.closedBy.some(
+        (user) => user.id === userId
+      )
+
+      if (isClosed) {
+        findConversation.closedBy = findConversation.closedBy.filter(
+          (user) => user.id !== userId
+        )
+
+        const closedConversation = await this.conversationRepository.save(
+          findConversation
+        )
+
+        delete closedConversation.closedBy
+
+        return {
+          conversation: closedConversation,
+          created: false
+        }
+      }
+
+      delete findConversation.closedBy
+
+      return {
+        conversation: findConversation,
+        created: false
+      }
+    }
+
     const conversation = this.conversationRepository.create({
       user1: { id: userId },
       user2: { id: input.userId }
     })
 
-    return await this.conversationRepository.save(conversation)
+    return {
+      conversation: await this.conversationRepository.save(conversation)
+    }
   }
 
   async findOne(
@@ -64,31 +123,37 @@ export class ConversationService {
             id: userId
           }
         }
-      ]
+      ],
+      relations: ['closedBy']
     })
 
     const data = await Promise.all(
-      conversations.map(async (conversation) => {
-        const lastMessage = await this.messageService.findOne({
-          where: {
-            conversation: {
-              id: conversation.id
+      conversations
+        .filter(
+          (conversation) =>
+            !conversation.closedBy.some((user) => user.id === userId)
+        )
+        .map(async (conversation) => {
+          const lastMessage = await this.messageService.findOne({
+            where: {
+              conversation: {
+                id: conversation.id
+              }
+            },
+            order: {
+              createdAt: 'DESC'
             }
-          },
-          order: {
-            createdAt: 'DESC'
+          })
+
+          const sortedDate = lastMessage
+            ? lastMessage.createdAt
+            : conversation.createdAt
+
+          return {
+            ...conversation,
+            sortedDate
           }
         })
-
-        const sortedDate = lastMessage
-          ? lastMessage.createdAt
-          : conversation.createdAt
-
-        return {
-          ...conversation,
-          sortedDate
-        }
-      })
     )
 
     const sortedConversation = orderBy(data, 'sortedDate', 'desc')
@@ -97,5 +162,35 @@ export class ConversationService {
       delete conversation.sortedDate
       return conversation
     })
+  }
+
+  async closeConversation(
+    conversationId: Conversation['id'],
+    userId: User['id']
+  ): Promise<Conversation | null> {
+    const conversation = await this.conversationRepository.findOne({
+      where: {
+        id: conversationId
+      },
+      relations: ['closedBy']
+    })
+
+    const user = await this.userService.findOne({
+      where: {
+        id: userId
+      }
+    })
+
+    if (!conversation || !user) return null
+
+    const isClosed = conversation.closedBy.some((user) => user.id === userId)
+
+    if (isClosed) return conversation
+
+    conversation.closedBy = [...conversation.closedBy, user]
+
+    await this.conversationRepository.save(conversation)
+
+    return conversation
   }
 }

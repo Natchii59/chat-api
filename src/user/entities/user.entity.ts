@@ -77,4 +77,7 @@ export class User extends Node {
 
   @ManyToMany(() => User, (user) => user.sentRequests)
   receivedRequests: User[]
+
+  @ManyToMany(() => Conversation, (conversation) => conversation.closedBy)
+  closedConversations: Conversation[]
 }
