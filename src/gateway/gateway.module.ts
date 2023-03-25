@@ -8,13 +8,15 @@ import { UserModule } from '@/user/user.module'
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { Services } from '@/utils/constants'
 import { ConversationModule } from '@/conversation/conversation.module'
+import { MessageModule } from '@/message/message.module'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Conversation]),
     AuthModule,
     UserModule,
-    ConversationModule
+    ConversationModule,
+    MessageModule
   ],
   providers: [
     GatewayGateway,

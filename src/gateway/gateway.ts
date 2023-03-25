@@ -18,6 +18,7 @@ import { Message } from '@/message/entities/message.entity'
 import { ConversationService } from '@/conversation/conversation.service'
 import { User } from '@/user/entities/user.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
+import { MessageService } from '@/message/message.service'
 
 @WebSocketGateway({
   cors: {
@@ -33,7 +34,9 @@ export class GatewayGateway
     @Inject(Services.AUTH) private readonly authService: AuthService,
     @Inject(Services.USER) private readonly userService: UserService,
     @Inject(Services.CONVERSATION)
-    private readonly conversationService: ConversationService
+    private readonly conversationService: ConversationService,
+    @Inject(Services.MESSAGE)
+    private readonly messageService: MessageService
   ) {}
 
   @WebSocketServer()
@@ -83,14 +86,14 @@ export class GatewayGateway
 
     this.server
       .to(`conversation-${body.conversation.id}`)
-      .emit('onMessage', body)
+      .emit('onMessageCreated', body)
 
     this.sessions
       .getUserSocket(body.conversation.user1.id)
-      ?.emit('onMessageUpdateSidebar', body)
+      ?.emit('onMessageCreatedSidebar', body)
     this.sessions
       .getUserSocket(body.conversation.user2.id)
-      ?.emit('onMessageUpdateSidebar', body)
+      ?.emit('onMessageCreatedSidebar', body)
   }
 
   @SubscribeMessage('onConversationJoin')
@@ -307,5 +310,41 @@ export class GatewayGateway
     this.sessions
       .getUserSocket(body.user2.id)
       ?.emit('onConversationCreated', body)
+  }
+
+  @SubscribeMessage('deleteMessage')
+  async onMessageDeleted(
+    @MessageBody()
+    data: {
+      conversationId: string
+      messageId: string
+      user1Id: string
+      user2Id: string
+    },
+    @ConnectedSocket() socket: Socket
+  ) {
+    console.log(
+      `${socket.data.user.username} delete message ${data.messageId} from conversation ${data.conversationId}`
+    )
+
+    this.server
+      .to(`conversation-${data.conversationId}`)
+      .emit('onMessageDeleted', {
+        messageId: data.messageId
+      })
+
+    const newLastMessage = await this.messageService.findOne({
+      where: { conversation: { id: data.conversationId } },
+      order: { createdAt: 'DESC' }
+    })
+
+    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageDeletedSidebar', {
+      conversationId: data.conversationId,
+      newLastMessage
+    })
+    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageDeletedSidebar', {
+      conversationId: data.conversationId,
+      newLastMessage
+    })
   }
 }
