@@ -8,36 +8,34 @@ import {
   ResolveField,
   Parent
 } from '@nestjs/graphql'
-import { EventEmitter2 } from '@nestjs/event-emitter'
 
-import { MessageService } from './message.service'
-import { Message } from './entities/message.entity'
 import { CreateMessageInput } from './dto/create-message.input'
-import { FindOneMessageArgs } from './dto/findone-message.input'
 import { DeleteMessageArgs } from './dto/delete-message.input'
-import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
-import { UserPayload } from '@/auth/dto/payload-user.dto'
-import { Services } from '@/utils/constants'
-import { User } from '@/user/entities/user.entity'
-import { UserService } from '@/user/user.service'
-import { Conversation } from '@/conversation/entities/conversation.entity'
-import { ConversationService } from '@/conversation/conversation.service'
+import { FindOneMessageArgs } from './dto/findone-message.input'
 import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { Message } from './entities/message.entity'
+import { MessageService } from './message.service'
+import { UserPayload } from '@/auth/dto/payload-user.dto'
+import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
+import { ConversationService } from '@/conversation/conversation.service'
+import { Conversation } from '@/conversation/entities/conversation.entity'
+import { User } from '@/user/entities/user.entity'
+import { UserService } from '@/user/user.service'
+import { Services } from '@/utils/constants'
 
 @Resolver(Message)
+@UseGuards(JwtAuthGuard)
 export class MessageResolver {
   constructor(
     @Inject(Services.MESSAGE) private readonly messageService: MessageService,
     @Inject(Services.USER) private readonly userService: UserService,
     @Inject(Services.CONVERSATION)
-    private readonly conversationService: ConversationService,
-    private readonly eventEmitter: EventEmitter2
+    private readonly conversationService: ConversationService
   ) {}
 
-  @UseGuards(JwtAuthGuard)
   @Mutation(() => Message, {
     name: 'CreateMessage',
     description: 'Create a new message.'
@@ -49,7 +47,6 @@ export class MessageResolver {
     return await this.messageService.create(input, user.id)
   }
 
-  @UseGuards(JwtAuthGuard)
   @Query(() => Message, {
     name: 'FindOneMessage',
     description: 'Find one message by id.',
@@ -67,16 +64,15 @@ export class MessageResolver {
     })
   }
 
-  @UseGuards(JwtAuthGuard)
   @Mutation(() => ID, {
     name: 'DeleteMessage',
-    description: 'Delete a message by id.',
-    nullable: true
+    description: 'Delete a message by id.'
   })
   async removeMessage(
-    @Args() args: DeleteMessageArgs
+    @Args() args: DeleteMessageArgs,
+    @CurrentUser() user: UserPayload
   ): Promise<Message['id'] | null> {
-    return await this.messageService.delete(args.id)
+    return await this.messageService.delete(args.id, user.id)
   }
 
   @ResolveField(() => User, {
@@ -101,7 +97,6 @@ export class MessageResolver {
     })
   }
 
-  @UseGuards(JwtAuthGuard)
   @Query(() => PaginationMessage, {
     name: 'PaginationMessage',
     description: 'Pagination of messages.'

@@ -10,10 +10,10 @@ import {
   RelationId
 } from 'typeorm'
 
-import { Node } from '@/database/entities/node.entity'
-import { Message } from '@/message/entities/message.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
+import { Node } from '@/database/entities/node.entity'
 import { Image } from '@/image/entities/image.entity'
+import { Message } from '@/message/entities/message.entity'
 
 @Entity()
 @ObjectType()
@@ -44,7 +44,9 @@ export class User extends Node {
   )
   conversations: Conversation[]
 
-  @ManyToMany(() => User, (user) => user.receiverFriends)
+  @ManyToMany(() => User, (user) => user.receiverFriends, {
+    onDelete: 'CASCADE'
+  })
   @JoinTable({
     name: 'user_friends',
     joinColumn: {
@@ -58,10 +60,14 @@ export class User extends Node {
   })
   senderFriends: User[]
 
-  @ManyToMany(() => User, (user) => user.senderFriends)
+  @ManyToMany(() => User, (user) => user.senderFriends, {
+    onDelete: 'CASCADE'
+  })
   receiverFriends: User[]
 
-  @ManyToMany(() => User, (user) => user.receivedRequests)
+  @ManyToMany(() => User, (user) => user.receivedRequests, {
+    onDelete: 'CASCADE'
+  })
   @JoinTable({
     name: 'user_requests',
     joinColumn: {
@@ -75,9 +81,13 @@ export class User extends Node {
   })
   sentRequests: User[]
 
-  @ManyToMany(() => User, (user) => user.sentRequests)
+  @ManyToMany(() => User, (user) => user.sentRequests, {
+    onDelete: 'CASCADE'
+  })
   receivedRequests: User[]
 
-  @ManyToMany(() => Conversation, (conversation) => conversation.closedBy)
+  @ManyToMany(() => Conversation, (conversation) => conversation.closedBy, {
+    onDelete: 'CASCADE'
+  })
   closedConversations: Conversation[]
 }

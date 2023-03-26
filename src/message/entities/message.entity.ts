@@ -1,9 +1,9 @@
 import { ObjectType, Field } from '@nestjs/graphql'
 import { Column, Entity, JoinColumn, ManyToOne, RelationId } from 'typeorm'
 
-import { User } from '@/user/entities/user.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { Node } from '@/database/entities/node.entity'
+import { User } from '@/user/entities/user.entity'
 
 @Entity()
 @ObjectType()

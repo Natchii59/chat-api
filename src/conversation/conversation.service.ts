@@ -1,17 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { FindManyOptions, FindOneOptions, Repository } from 'typeorm'
 import { orderBy } from 'lodash'
+import { FindOneOptions, Repository } from 'typeorm'
 
 import {
   CreateConversationInput,
   CreateConversationOutput
 } from './dto/create-conversation.input'
 import { Conversation } from './entities/conversation.entity'
-import { User } from '@/user/entities/user.entity'
-import { Services } from '@/utils/constants'
+import { ConversationNotFoundException } from './exceptions/conversation-not-found.exception'
 import { MessageService } from '@/message/message.service'
+import { User } from '@/user/entities/user.entity'
+import { UserNotFoundException } from '@/user/exceptions/user-not-found.exception'
 import { UserService } from '@/user/user.service'
+import { Services } from '@/utils/constants'
 
 @Injectable()
 export class ConversationService {
@@ -91,21 +93,15 @@ export class ConversationService {
   async findOne(
     input: FindOneOptions<Conversation>
   ): Promise<Conversation | null> {
-    return await this.conversationRepository.findOne(input)
+    return await this.conversationRepository.findOne({ ...input })
   }
 
-  async find(
-    input: FindManyOptions<Conversation>
-  ): Promise<Conversation[] | null> {
-    return await this.conversationRepository.find(input)
-  }
-
-  async delete(id: Conversation['id']): Promise<Conversation['id'] | null> {
+  async delete(id: Conversation['id']): Promise<Conversation['id']> {
     const result = await this.conversationRepository.delete(id)
 
-    if (result.affected) return id
+    if (!result.affected) throw new ConversationNotFoundException()
 
-    return null
+    return id
   }
 
   async getUserConversations(
@@ -167,7 +163,7 @@ export class ConversationService {
   async closeConversation(
     conversationId: Conversation['id'],
     userId: User['id']
-  ): Promise<Conversation | null> {
+  ): Promise<Conversation> {
     const conversation = await this.conversationRepository.findOne({
       where: {
         id: conversationId
@@ -175,13 +171,15 @@ export class ConversationService {
       relations: ['closedBy']
     })
 
+    if (!conversation) throw new ConversationNotFoundException()
+
     const user = await this.userService.findOne({
       where: {
         id: userId
       }
     })
 
-    if (!conversation || !user) return null
+    if (!user) throw new UserNotFoundException()
 
     const isClosed = conversation.closedBy.some((user) => user.id === userId)
 
@@ -189,8 +187,6 @@ export class ConversationService {
 
     conversation.closedBy = [...conversation.closedBy, user]
 
-    await this.conversationRepository.save(conversation)
-
-    return conversation
+    return await this.conversationRepository.save(conversation)
   }
 }

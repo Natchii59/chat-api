@@ -1,6 +1,12 @@
-import { ExecutionContext, Injectable } from '@nestjs/common'
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException
+} from '@nestjs/common'
 import { GqlExecutionContext } from '@nestjs/graphql'
 import { AuthGuard } from '@nestjs/passport'
+
+import { UserPayload } from '../dto/payload-user.dto'
 
 @Injectable()
 export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {
@@ -15,5 +21,13 @@ export class JwtRefreshAuthGuard extends AuthGuard('jwt-refresh') {
   getRequest(context: ExecutionContext) {
     const ctx = GqlExecutionContext.create(context)
     return ctx.getContext().req
+  }
+
+  handleRequest<TUser = UserPayload>(err: Error, user: TUser): TUser {
+    if (err || !user) {
+      throw new UnauthorizedException('The refresh token is invalid.')
+    }
+
+    return user
   }
 }

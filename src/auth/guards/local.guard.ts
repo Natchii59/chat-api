@@ -8,7 +8,6 @@ import { AuthGuard } from '@nestjs/passport'
 import { matches } from 'class-validator'
 
 import { SignInArgs } from '../dto/auth.dto'
-
 import { IGraphQLErrorMessage } from '@/utils/types'
 
 @Injectable()
@@ -31,11 +30,11 @@ export class LocalAuthGuard extends AuthGuard('local') {
   validateArgs(args: SignInArgs): void {
     const errors: IGraphQLErrorMessage[] = []
 
-    if (!matches(args.username, /^[a-zA-Z0-9_]{3,}$/))
+    if (!matches(args.username, /^[a-z0-9_]{3,}$/))
       errors.push({
-        code: 'usernamr',
+        code: 'username',
         message:
-          'The username must contain at least 3 characters, and can only contain letters, numbers and underscores.'
+          'The username must contain at least 3 characters, and must contain only lowercase letters, numbers and underscores.'
       })
 
     if (

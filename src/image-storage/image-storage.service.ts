@@ -1,8 +1,8 @@
-import { Inject, Injectable } from '@nestjs/common'
 import { PutObjectCommandOutput, S3 } from '@aws-sdk/client-s3'
+import { Inject, Injectable } from '@nestjs/common'
 
-import { Services } from '../utils/constants'
 import { UploadImageParams } from './dto/upload-file.dto'
+import { Services } from '../utils/constants'
 
 @Injectable()
 export class ImageStorageService {

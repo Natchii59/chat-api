@@ -1,20 +1,20 @@
 import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql'
 
+import { AuthService } from './auth.service'
 import {
   SignInArgs,
   SignInOutput,
   SignUpOutput,
   TokensOutput
 } from './dto/auth.dto'
-import { LocalAuthGuard } from './guards/local.guard'
 import { UserPayload } from './dto/payload-user.dto'
-import { JwtAuthGuard, CurrentUser } from './guards/jwt.guard'
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard'
-import { AuthService } from './auth.service'
+import { JwtAuthGuard, CurrentUser } from './guards/jwt.guard'
+import { LocalAuthGuard } from './guards/local.guard'
 import { CreateUserInput } from '@/user/dto/create-user.input'
-import { UserService } from '@/user/user.service'
 import { User } from '@/user/entities/user.entity'
+import { UserService } from '@/user/user.service'
 import { Services } from '@/utils/constants'
 
 @Resolver()
@@ -57,17 +57,16 @@ export class AuthResolver {
   @UseGuards(JwtAuthGuard)
   @Query(() => User, {
     name: 'Profile',
-    description: 'Get current user',
-    nullable: true
+    description: 'Get current user'
   })
-  async profile(@CurrentUser() currentUser: UserPayload): Promise<User | null> {
+  async profile(@CurrentUser() currentUser: UserPayload): Promise<User> {
     return await this.userService.findOne({
       where: { id: currentUser.id }
     })
   }
 
   @UseGuards(JwtRefreshAuthGuard)
-  @Query(() => TokensOutput, {
+  @Mutation(() => TokensOutput, {
     name: 'RefreshTokens',
     description: 'Refresh Tokens of current user'
   })

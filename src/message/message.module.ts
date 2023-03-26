@@ -1,13 +1,13 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
-import { MessageService } from './message.service'
-import { MessageResolver } from './message.resolver'
 import { Message } from './entities/message.entity'
-import { Services } from '@/utils/constants'
-import { UserModule } from '@/user/user.module'
+import { MessageResolver } from './message.resolver'
+import { MessageService } from './message.service'
 import { ConversationModule } from '@/conversation/conversation.module'
 import { Conversation } from '@/conversation/entities/conversation.entity'
+import { UserModule } from '@/user/user.module'
+import { Services } from '@/utils/constants'
 
 @Module({
   imports: [

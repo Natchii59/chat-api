@@ -6,7 +6,7 @@ import { Message } from '../entities/message.entity'
 @ArgsType()
 export class FindOneMessageArgs {
   @Field(() => ID, { description: 'Id of message', nullable: true })
-  @IsUUID('all', {
+  @IsUUID('4', {
     message: 'The id must be a UUID.'
   })
   @ValidateIf((_o, v) => v !== undefined)

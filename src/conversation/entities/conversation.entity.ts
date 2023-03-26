@@ -10,20 +10,24 @@ import {
 } from 'typeorm'
 
 import { Node } from '@/database/entities/node.entity'
-import { User } from '@/user/entities/user.entity'
 import { Message } from '@/message/entities/message.entity'
+import { User } from '@/user/entities/user.entity'
 
 @Entity()
 @ObjectType()
 export class Conversation extends Node {
-  @ManyToOne(() => User, (user) => user.conversations)
+  @ManyToOne(() => User, (user) => user.conversations, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'user1_id' })
   user1: User
 
   @RelationId((conversation: Conversation) => conversation.user1)
   user1Id: User['id']
 
-  @ManyToOne(() => User, (user) => user.conversations)
+  @ManyToOne(() => User, (user) => user.conversations, {
+    onDelete: 'CASCADE'
+  })
   @JoinColumn({ name: 'user2_id' })
   user2: User
 
@@ -33,7 +37,9 @@ export class Conversation extends Node {
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[]
 
-  @ManyToMany(() => User, (user) => user.closedConversations)
+  @ManyToMany(() => User, (user) => user.closedConversations, {
+    onDelete: 'CASCADE'
+  })
   @JoinTable({
     name: 'closed_conversations',
     joinColumn: {

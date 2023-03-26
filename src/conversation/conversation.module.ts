@@ -1,12 +1,12 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
-import { ConversationService } from './conversation.service'
 import { ConversationResolver } from './conversation.resolver'
+import { ConversationService } from './conversation.service'
 import { Conversation } from './entities/conversation.entity'
-import { Services } from '@/utils/constants'
-import { UserModule } from '@/user/user.module'
 import { MessageModule } from '@/message/message.module'
+import { UserModule } from '@/user/user.module'
+import { Services } from '@/utils/constants'
 
 @Module({
   imports: [

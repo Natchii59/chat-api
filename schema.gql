@@ -2,31 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type Conversation {
-  """Unique identifier for the resource."""
-  id: ID!
-
-  """Date and time when the resource was created."""
-  createdAt: DateTime!
-
-  """Date and time when the resource was last updated."""
-  updatedAt: DateTime!
-
-  """Get the first user of the conversation."""
-  user1: User!
-
-  """Get the second user of the conversation."""
-  user2: User!
-
-  """Get the last message of the conversation."""
-  lastMessage: Message
-}
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
-
 type Message {
   """Unique identifier for the resource."""
   id: ID!
@@ -45,6 +20,31 @@ type Message {
 
   """The conversation the message belongs to."""
   conversation: Conversation
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Conversation {
+  """Unique identifier for the resource."""
+  id: ID!
+
+  """Date and time when the resource was created."""
+  createdAt: DateTime!
+
+  """Date and time when the resource was last updated."""
+  updatedAt: DateTime!
+
+  """Get the first user of the conversation."""
+  user1: User!
+
+  """Get the second user of the conversation."""
+  user2: User!
+
+  """Get the last message of the conversation."""
+  lastMessage: Message
 }
 
 type Image {
@@ -77,9 +77,6 @@ type User {
   """Username of user"""
   username: String!
 
-  """Get all conversations of a user"""
-  conversations: [Conversation!]!
-
   """Get all friends of a user"""
   friends: [User!]
 
@@ -91,20 +88,9 @@ type User {
 
   """Avatar of a user"""
   avatar: Image
-}
 
-type CreateConversationOutput {
-  """The conversation created."""
-  conversation: Conversation!
-
-  """Whether the conversation was created or not."""
-  created: Boolean!
-}
-
-type PaginationMessage {
-  """Total number of nodes"""
-  totalCount: Int!
-  nodes: [Message!]!
+  """Get all conversations of a user"""
+  conversations: [Conversation!]
 }
 
 type TokensOutput {
@@ -135,6 +121,20 @@ type SignUpOutput {
 
   """Current user"""
   user: User!
+}
+
+type CreateConversationOutput {
+  """The conversation created."""
+  conversation: Conversation!
+
+  """Whether the conversation was created or not."""
+  created: Boolean!
+}
+
+type PaginationMessage {
+  """Total number of nodes"""
+  totalCount: Int!
+  nodes: [Message!]!
 }
 
 type Query {
@@ -170,10 +170,7 @@ type Query {
   Logout: Boolean!
 
   """Get current user"""
-  Profile: User
-
-  """Refresh Tokens of current user"""
-  RefreshTokens: TokensOutput!
+  Profile: User!
 }
 
 input FindOneUserInput {
@@ -210,40 +207,40 @@ input PaginationMessageWhere {
 
 type Mutation {
   """Update a user"""
-  UpdateUser(input: UpdateUserInput!): User
+  UpdateUser(input: UpdateUserInput!): User!
 
   """Delete a user"""
-  DeleteUser: User
-
-  """Accept a friend request"""
-  AcceptFriendRequest(
-    """Id of user"""
-    id: ID!
-  ): User
-
-  """Decline a friend request"""
-  DeclineFriendRequest(
-    """Id of user"""
-    id: ID!
-  ): User
-
-  """Cancel a friend request"""
-  CancelFriendRequest(
-    """Id of user"""
-    id: ID!
-  ): User
+  DeleteUser: User!
 
   """Send a friend request"""
   SendFriendRequest(
     """Username of user"""
     username: String!
-  ): User
+  ): User!
+
+  """Accept a friend request"""
+  AcceptFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User!
+
+  """Decline a friend request"""
+  DeclineFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User!
+
+  """Cancel a friend request"""
+  CancelFriendRequest(
+    """Id of user"""
+    id: ID!
+  ): User!
 
   """Remove a friend"""
   RemoveFriend(
     """Id of user"""
     id: ID!
-  ): User
+  ): User!
 
   """Create a new conversation."""
   CreateConversation(input: CreateConversationInput!): CreateConversationOutput!
@@ -251,14 +248,14 @@ type Mutation {
   """Delete a conversation by id."""
   DeleteConversation(
     """Id of conversation"""
-    id: ID
-  ): ID
+    id: ID!
+  ): ID!
 
   """Close a conversation for user."""
   CloseConversation(
     """Id of conversation"""
     id: ID!
-  ): Conversation
+  ): Conversation!
 
   """Create a new message."""
   CreateMessage(input: CreateMessageInput!): Message!
@@ -266,8 +263,8 @@ type Mutation {
   """Delete a message by id."""
   DeleteMessage(
     """Id of message"""
-    id: ID
-  ): ID
+    id: ID!
+  ): ID!
 
   """Sign up User"""
   SignUp(input: CreateUserInput!): SignUpOutput!
@@ -280,6 +277,9 @@ type Mutation {
     """Password of user"""
     password: String!
   ): SignInOutput!
+
+  """Refresh Tokens of current user"""
+  RefreshTokens: TokensOutput!
 }
 
 input UpdateUserInput {

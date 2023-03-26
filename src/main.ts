@@ -1,5 +1,5 @@
-import { NestFactory } from '@nestjs/core'
 import { BadRequestException, ValidationPipe } from '@nestjs/common'
+import { NestFactory } from '@nestjs/core'
 import * as graphqlUploadExpress from 'graphql-upload/graphqlUploadExpress.js'
 
 import { AppModule } from './app.module'
@@ -19,6 +19,10 @@ async function bootstrap() {
   )
 
   app.use(graphqlUploadExpress({ maxFileSize: 1024 ** 2 * 20 }))
+
+  app.enableCors({
+    origin: [process.env.CLIENT_URL]
+  })
 
   await app.listen(process.env.PORT)
 }

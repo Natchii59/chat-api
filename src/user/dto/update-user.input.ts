@@ -1,6 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql'
-import { Matches, ValidateIf } from 'class-validator'
 import { Transform } from 'class-transformer'
+import { Matches, ValidateIf } from 'class-validator'
 import * as GraphQLUpload from 'graphql-upload/GraphQLUpload.js'
 
 import { User } from '../entities/user.entity'
@@ -9,9 +9,9 @@ import { FileUpload } from '@/utils/types'
 @InputType()
 export class UpdateUserInput {
   @Field(() => String, { description: 'Username of user', nullable: true })
-  @Matches(/^[a-zA-Z0-9_]{3,}$/, {
+  @Matches(/^[a-z0-9_]{3,}$/, {
     message:
-      'The username must contain at least 3 characters, and can only contain letters, numbers and underscores.'
+      'The username must be at least 3 characters long and can only contain lowercase letters, numbers and underscores.'
   })
   @ValidateIf((_o, v) => v !== undefined)
   @Transform(({ value }) => (value ? value.toLowerCase() : value))

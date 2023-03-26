@@ -1,19 +1,19 @@
 import { ArgsType, Field, ID, InputType, ObjectType } from '@nestjs/graphql'
+import { Type } from 'class-transformer'
 import { IsDate, IsUUID, ValidateIf, ValidateNested } from 'class-validator'
 
 import { Message } from '../entities/message.entity'
+import { Conversation } from '@/conversation/entities/conversation.entity'
 import {
   Pagination,
   PaginationArgs,
   PaginationWhere
 } from '@/database/dto/pagination.dto'
-import { Conversation } from '@/conversation/entities/conversation.entity'
-import { Type } from 'class-transformer'
 
 @InputType()
 export class PaginationMessageWhere extends PaginationWhere {
   @Field(() => ID, { description: 'Filter by Conversation Id', nullable: true })
-  @IsUUID('all', {
+  @IsUUID('4', {
     message: 'The conversationId must be a UUID.'
   })
   @ValidateIf((_o, v) => v !== undefined)

@@ -6,7 +6,7 @@ import { Conversation } from '../entities/conversation.entity'
 @ArgsType()
 export class CloseConversationArgs {
   @Field(() => ID, { description: 'Id of conversation' })
-  @IsUUID('all', {
+  @IsUUID('4', {
     message: 'The id must be a UUID.'
   })
   id: Conversation['id']

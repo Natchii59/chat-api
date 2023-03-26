@@ -1,16 +1,12 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException
-} from '@nestjs/common'
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { compare } from 'bcrypt'
 
-import { UserPayload } from './dto/payload-user.dto'
 import { SignInOutput, SignUpOutput, TokensOutput } from './dto/auth.dto'
-import { User } from '@/user/entities/user.entity'
+import { UserPayload } from './dto/payload-user.dto'
 import { CreateUserInput } from '@/user/dto/create-user.input'
+import { User } from '@/user/entities/user.entity'
+import { UserNotFoundException } from '@/user/exceptions/user-not-found.exception'
 import { UserService } from '@/user/user.service'
 import { Services } from '@/utils/constants'
 import { hashData } from '@/utils/functions'
@@ -106,13 +102,14 @@ export class AuthService {
       where: { id }
     })
 
-    if (!user) throw new NotFoundException()
+    if (!user) throw new UserNotFoundException()
 
-    if (!user.refreshToken) throw new UnauthorizedException()
+    if (!user.refreshToken)
+      throw new UnauthorizedException('The user is not logged in.')
 
     const matchTokens = await compare(refreshToken, user.refreshToken)
 
-    if (!matchTokens) throw new UnauthorizedException()
+    if (!matchTokens) throw new UnauthorizedException('Invalid token.')
 
     const tokens = await this.getTokens({
       id: user.id
@@ -129,7 +126,7 @@ export class AuthService {
         secret: process.env.JWT_ACCESS_TOKEN_SECRET
       })
     } catch (error) {
-      throw new UnauthorizedException()
+      throw new UnauthorizedException('Invalid token.')
     }
   }
 }

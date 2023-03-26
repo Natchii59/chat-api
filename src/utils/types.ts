@@ -1,9 +1,10 @@
 import { Stream } from 'stream'
 
 export interface IGraphQLError {
-  message: string
+  message: string | IGraphQLErrorMessage[]
   statusCode: number
   error: string
+  path: string[]
 }
 
 export interface IGraphQLErrorMessage {

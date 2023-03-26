@@ -7,8 +7,8 @@ import {
   InterfaceType,
   registerEnumType
 } from '@nestjs/graphql'
-import { IsInt, IsUUID, ValidateIf, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
+import { IsInt, IsUUID, ValidateIf, ValidateNested } from 'class-validator'
 
 import { Node } from '../entities/node.entity'
 
@@ -39,7 +39,7 @@ export class PaginationSortBy {
 @InputType()
 export class PaginationWhere {
   @Field(() => ID, { nullable: true, description: 'Filter by id' })
-  @IsUUID('all', { message: 'The id must be a UUID.' })
+  @IsUUID('4', { message: 'The id must be a UUID.' })
   @ValidateIf((_o, v) => v !== undefined)
   id?: string
 }

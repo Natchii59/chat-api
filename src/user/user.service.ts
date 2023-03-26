@@ -6,10 +6,11 @@ import { v4 } from 'uuid'
 import { CreateUserInput } from './dto/create-user.input'
 import { UpdateUserInput } from './dto/update-user.input'
 import { User } from './entities/user.entity'
-import { formatImage, hashData } from '@/utils/functions'
-import { Services } from '@/utils/constants'
-import { ImageStorageService } from '@/image-storage/image-storage.service'
+import { UserNotFoundException } from './exceptions/user-not-found.exception'
 import { ImageService } from '@/image/image.service'
+import { ImageStorageService } from '@/image-storage/image-storage.service'
+import { Services } from '@/utils/constants'
+import { formatImage, hashData } from '@/utils/functions'
 
 @Injectable()
 export class UserService {
@@ -44,13 +45,13 @@ export class UserService {
     return await this.userRepository.findOne({ ...input })
   }
 
-  async update(id: User['id'], input: UpdateUserInput): Promise<User | null> {
+  async update(id: User['id'], input: UpdateUserInput): Promise<User> {
     const user = await this.findOne({
       where: { id },
       relations: input.avatar ? ['avatar'] : undefined
     })
 
-    if (!user) return null
+    if (!user) throw new UserNotFoundException()
 
     if (input.password) input.password = await hashData(input.password)
 
@@ -82,124 +83,118 @@ export class UserService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { avatar, ...restInput } = input
 
-    await this.userRepository.save({
+    return await this.userRepository.save({
       ...user,
       ...restInput
     })
-
-    return user
   }
 
-  async delete(id: User['id']): Promise<User['id'] | null> {
+  async delete(id: User['id']): Promise<User['id']> {
     const result = await this.userRepository.delete(id)
 
-    if (result.affected) return id
+    if (!result.affected) throw new UserNotFoundException()
 
-    return null
+    return id
   }
 
-  async findAllFriends(id: User['id']): Promise<User[] | null> {
+  async findAllFriends(id: User['id']): Promise<User[]> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['senderFriends', 'receiverFriends']
     })
 
-    if (!user) return null
+    if (!user) throw new UserNotFoundException()
 
     return [...user.senderFriends, ...user.receiverFriends].sort((a, b) =>
       a.username.localeCompare(b.username)
     )
   }
 
-  async findAllReceivedRequests(id: User['id']): Promise<User[] | null> {
+  async findAllReceivedRequests(id: User['id']): Promise<User[]> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['receivedRequests']
     })
 
-    if (!user) return null
+    if (!user) throw new UserNotFoundException()
 
-    return user.receivedRequests
+    return user.receivedRequests.sort((a, b) =>
+      a.username.localeCompare(b.username)
+    )
   }
 
-  async findAllSentRequests(id: User['id']): Promise<User[] | null> {
+  async findAllSentRequests(id: User['id']): Promise<User[]> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['sentRequests']
     })
 
-    if (!user) return null
+    if (!user) throw new UserNotFoundException()
 
-    return user.sentRequests
+    return user.sentRequests.sort((a, b) =>
+      a.username.localeCompare(b.username)
+    )
   }
 
   async acceptFriendRequest(
     id: User['id'],
     friendId: User['id']
-  ): Promise<User | null> {
+  ): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['receiverFriends']
+      where: { id }
     })
 
     const friend = await this.userRepository.findOne({
       where: { id: friendId },
-      relations: ['sentRequests']
+      relations: ['sentRequests', 'senderFriends']
     })
 
-    if (!user || !friend) return null
+    if (!user || !friend) throw new UserNotFoundException()
 
-    user.receiverFriends.push(friend)
+    friend.senderFriends.push(user)
     friend.sentRequests = friend.sentRequests.filter((user) => user.id !== id)
 
-    await this.userRepository.save(user)
-    await this.userRepository.save(friend)
-
-    return friend
+    return await this.userRepository.save(friend)
   }
 
   async declineFriendRequest(
     id: User['id'],
     friendId: User['id']
-  ): Promise<User | null> {
+  ): Promise<User> {
     const friend = await this.userRepository.findOne({
       where: { id: friendId },
       relations: ['sentRequests']
     })
 
-    if (!friend) return null
+    if (!friend) throw new UserNotFoundException()
 
     friend.sentRequests = friend.sentRequests.filter((user) => user.id !== id)
 
-    await this.userRepository.save(friend)
-
-    return friend
+    return await this.userRepository.save(friend)
   }
 
   async cancelFriendRequest(
     id: User['id'],
     friendId: User['id']
-  ): Promise<User | null> {
+  ): Promise<User> {
     const friend = await this.userRepository.findOne({
       where: { id: friendId },
       relations: ['receivedRequests']
     })
 
-    if (!friend) return null
+    if (!friend) throw new UserNotFoundException()
 
     friend.receivedRequests = friend.receivedRequests.filter(
       (user) => user.id !== id
     )
 
-    await this.userRepository.save(friend)
-
-    return friend
+    return await this.userRepository.save(friend)
   }
 
   async sendFriendRequest(
     id: User['id'],
     friendUsername: User['username']
-  ): Promise<User | null> {
+  ): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['receivedRequests', 'senderFriends', 'receiverFriends']
@@ -210,7 +205,7 @@ export class UserService {
       relations: ['receivedRequests']
     })
 
-    if (!user || !friend) return null
+    if (!user || !friend) throw new UserNotFoundException()
 
     if (user.id === friend.id)
       throw new BadRequestException(
@@ -231,18 +226,12 @@ export class UserService {
 
     friend.receivedRequests.push(user)
 
-    await this.userRepository.save(friend)
-
-    return friend
+    return await this.userRepository.save(friend)
   }
 
-  async removeFriend(
-    id: User['id'],
-    friendId: User['id']
-  ): Promise<User | null> {
+  async removeFriend(id: User['id'], friendId: User['id']): Promise<User> {
     const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['senderFriends', 'receiverFriends']
+      where: { id }
     })
 
     const friend = await this.userRepository.findOne({
@@ -250,7 +239,7 @@ export class UserService {
       relations: ['senderFriends', 'receiverFriends']
     })
 
-    if (!user || !friend) return null
+    if (!user || !friend) throw new UserNotFoundException()
 
     friend.senderFriends = friend.senderFriends.filter(
       (user) => user.id !== user.id
@@ -259,8 +248,6 @@ export class UserService {
       (user) => user.id !== user.id
     )
 
-    await this.userRepository.save(friend)
-
-    return friend
+    return await this.userRepository.save(friend)
   }
 }

@@ -1,8 +1,8 @@
 import { InputType, Field, ID } from '@nestjs/graphql'
+import { IsNotEmpty, IsUUID, MaxLength } from 'class-validator'
 
 import { Message } from '../entities/message.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
-import { IsNotEmpty, IsUUID, MaxLength } from 'class-validator'
 
 @InputType()
 export class CreateMessageInput {
@@ -12,6 +12,6 @@ export class CreateMessageInput {
   content: Message['content']
 
   @Field(() => ID, { description: 'ID of the conversation' })
-  @IsUUID('all', { message: 'Invalid conversation Id' })
+  @IsUUID('4', { message: 'The id must be a UUID.' })
   conversationId: Conversation['id']
 }

@@ -1,4 +1,4 @@
-import { Inject, UnauthorizedException } from '@nestjs/common'
+import { Inject } from '@nestjs/common'
 import {
   ConnectedSocket,
   MessageBody,
@@ -12,17 +12,16 @@ import { Server, Socket } from 'socket.io'
 
 import { GatewaySessionManager } from './gateway.session'
 import { AuthService } from '@/auth/auth.service'
+import { Conversation } from '@/conversation/entities/conversation.entity'
+import { Message } from '@/message/entities/message.entity'
+import { MessageService } from '@/message/message.service'
+import { User } from '@/user/entities/user.entity'
 import { UserService } from '@/user/user.service'
 import { Services } from '@/utils/constants'
-import { Message } from '@/message/entities/message.entity'
-import { ConversationService } from '@/conversation/conversation.service'
-import { User } from '@/user/entities/user.entity'
-import { Conversation } from '@/conversation/entities/conversation.entity'
-import { MessageService } from '@/message/message.service'
 
 @WebSocketGateway({
   cors: {
-    origin: ['http://localhost:5173']
+    origin: [process.env.CLIENT_URL]
   }
 })
 export class GatewayGateway
@@ -33,8 +32,6 @@ export class GatewayGateway
     private readonly sessions: GatewaySessionManager,
     @Inject(Services.AUTH) private readonly authService: AuthService,
     @Inject(Services.USER) private readonly userService: UserService,
-    @Inject(Services.CONVERSATION)
-    private readonly conversationService: ConversationService,
     @Inject(Services.MESSAGE)
     private readonly messageService: MessageService
   ) {}
@@ -49,7 +46,8 @@ export class GatewayGateway
       )
       const user = await this.userService.findOne({
         where: { id: userPayload.id },
-        select: ['id', 'username', 'avatar', 'createdAt']
+        select: ['id', 'username', 'createdAt'],
+        relations: ['avatar']
       })
 
       if (!user) {
@@ -62,7 +60,6 @@ export class GatewayGateway
       console.log('connected', socket.id)
       console.log(this.sessions.getSockets().size, 'sessions')
     } catch (err) {
-      socket.emit('error', new UnauthorizedException())
       return this.disconnect(socket)
     }
   }
@@ -81,19 +78,57 @@ export class GatewayGateway
   }
 
   @SubscribeMessage('createMessage')
-  async createMessage(@MessageBody() body: Message) {
-    console.log(`${body.user.username} send message to ${body.conversation.id}`)
+  async createMessage(@MessageBody() data: { message: Message }) {
+    console.log(
+      `${data.message.user.username} send message to ${data.message.conversation.id}`
+    )
 
     this.server
-      .to(`conversation-${body.conversation.id}`)
-      .emit('onMessageCreated', body)
+      .to(`conversation-${data.message.conversation.id}`)
+      .emit('onMessageCreated', { message: data.message })
 
     this.sessions
-      .getUserSocket(body.conversation.user1.id)
-      ?.emit('onMessageCreatedSidebar', body)
+      .getUserSocket(data.message.conversation.user1.id)
+      ?.emit('onMessageCreatedSidebar', { message: data.message })
     this.sessions
-      .getUserSocket(body.conversation.user2.id)
-      ?.emit('onMessageCreatedSidebar', body)
+      .getUserSocket(data.message.conversation.user2.id)
+      ?.emit('onMessageCreatedSidebar', { message: data.message })
+  }
+
+  @SubscribeMessage('deleteMessage')
+  async onMessageDeleted(
+    @MessageBody()
+    data: {
+      conversationId: string
+      messageId: string
+      user1Id: string
+      user2Id: string
+    },
+    @ConnectedSocket() socket: Socket
+  ) {
+    console.log(
+      `${socket.data.user.username} delete message ${data.messageId} from conversation ${data.conversationId}`
+    )
+
+    this.server
+      .to(`conversation-${data.conversationId}`)
+      .emit('onMessageDeleted', {
+        messageId: data.messageId
+      })
+
+    const newLastMessage = await this.messageService.findOne({
+      where: { conversation: { id: data.conversationId } },
+      order: { createdAt: 'DESC' }
+    })
+
+    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageDeletedSidebar', {
+      conversationId: data.conversationId,
+      newLastMessage
+    })
+    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageDeletedSidebar', {
+      conversationId: data.conversationId,
+      newLastMessage
+    })
   }
 
   @SubscribeMessage('onConversationJoin')
@@ -120,7 +155,7 @@ export class GatewayGateway
 
   @SubscribeMessage('onTypingStart')
   async onTypingStart(
-    @MessageBody() data: { conversationId: string },
+    @MessageBody() data: { conversationId: string; userId: string },
     @ConnectedSocket() socket: Socket
   ) {
     console.log(
@@ -129,24 +164,17 @@ export class GatewayGateway
 
     socket.to(`conversation-${data.conversationId}`).emit('onTypingStart')
 
-    const conversation = await this.conversationService.findOne({
-      where: { id: data.conversationId }
-    })
-    const userSocket = this.sessions.getUserSocket(
-      socket.data.user.id === conversation.user1Id
-        ? conversation.user2Id
-        : conversation.user1Id
-    )
+    const userSocket = this.sessions.getUserSocket(data.userId)
     if (userSocket) {
       userSocket.emit('onTypingStartConversation', {
-        conversationId: conversation.id
+        conversationId: data.conversationId
       })
     }
   }
 
   @SubscribeMessage('onTypingStop')
   async onTypingStop(
-    @MessageBody() data: { conversationId: string },
+    @MessageBody() data: { conversationId: string; userId: string },
     @ConnectedSocket() socket: Socket
   ) {
     console.log(
@@ -155,17 +183,10 @@ export class GatewayGateway
 
     socket.to(`conversation-${data.conversationId}`).emit('onTypingStop')
 
-    const conversation = await this.conversationService.findOne({
-      where: { id: data.conversationId }
-    })
-    const userSocket = this.sessions.getUserSocket(
-      socket.data.user.id === conversation.user1Id
-        ? conversation.user2Id
-        : conversation.user1Id
-    )
+    const userSocket = this.sessions.getUserSocket(data.userId)
     if (userSocket) {
       userSocket.emit('onTypingStopConversation', {
-        conversationId: conversation.id
+        conversationId: data.conversationId
       })
     }
   }
@@ -299,52 +320,18 @@ export class GatewayGateway
   }
 
   @SubscribeMessage('createConversation')
-  async createConversation(@MessageBody() body: Conversation) {
-    console.log(
-      `${body.user1.username} create conversation with ${body.user2.username}`
-    )
-
-    this.sessions
-      .getUserSocket(body.user1.id)
-      ?.emit('onConversationCreated', body)
-    this.sessions
-      .getUserSocket(body.user2.id)
-      ?.emit('onConversationCreated', body)
-  }
-
-  @SubscribeMessage('deleteMessage')
-  async onMessageDeleted(
-    @MessageBody()
-    data: {
-      conversationId: string
-      messageId: string
-      user1Id: string
-      user2Id: string
-    },
-    @ConnectedSocket() socket: Socket
+  async createConversation(
+    @MessageBody() data: { conversation: Conversation }
   ) {
     console.log(
-      `${socket.data.user.username} delete message ${data.messageId} from conversation ${data.conversationId}`
+      `${data.conversation.user1.username} create conversation with ${data.conversation.user2.username}`
     )
 
-    this.server
-      .to(`conversation-${data.conversationId}`)
-      .emit('onMessageDeleted', {
-        messageId: data.messageId
-      })
-
-    const newLastMessage = await this.messageService.findOne({
-      where: { conversation: { id: data.conversationId } },
-      order: { createdAt: 'DESC' }
-    })
-
-    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageDeletedSidebar', {
-      conversationId: data.conversationId,
-      newLastMessage
-    })
-    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageDeletedSidebar', {
-      conversationId: data.conversationId,
-      newLastMessage
-    })
+    this.sessions
+      .getUserSocket(data.conversation.user1.id)
+      ?.emit('onConversationCreated', { conversation: data.conversation })
+    this.sessions
+      .getUserSocket(data.conversation.user2.id)
+      ?.emit('onConversationCreated', { conversation: data.conversation })
   }
 }

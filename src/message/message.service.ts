@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import {
   FindManyOptions,
@@ -9,14 +9,15 @@ import {
 } from 'typeorm'
 
 import { CreateMessageInput } from './dto/create-message.input'
-import { Message } from './entities/message.entity'
-import { User } from '@/user/entities/user.entity'
-import { SortDirection } from '@/database/dto/pagination.dto'
 import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { Message } from './entities/message.entity'
 import { Conversation } from '@/conversation/entities/conversation.entity'
+import { ConversationNotFoundException } from '@/conversation/exceptions/conversation-not-found.exception'
+import { SortDirection } from '@/database/dto/pagination.dto'
+import { User } from '@/user/entities/user.entity'
 
 @Injectable()
 export class MessageService {
@@ -31,17 +32,22 @@ export class MessageService {
     input: CreateMessageInput,
     userId: User['id']
   ): Promise<Message> {
-    const message = this.messageRepository.create({
-      content: input.content,
-      user: { id: userId },
-      conversation: { id: input.conversationId }
-    })
-
     const conversation = await this.conversationRepository.findOne({
       where: {
         id: input.conversationId
       },
       relations: ['closedBy', 'user1', 'user2']
+    })
+
+    if (!conversation) throw new ConversationNotFoundException()
+
+    if (conversation.user1.id !== userId && conversation.user2.id !== userId)
+      throw new NotFoundException('Invalid conversation or user')
+
+    const message = this.messageRepository.create({
+      content: input.content,
+      user: { id: userId },
+      conversation: { id: input.conversationId }
     })
 
     const otherUser =
@@ -59,15 +65,22 @@ export class MessageService {
   }
 
   async findOne(input: FindOneOptions<Message>): Promise<Message | null> {
-    return await this.messageRepository.findOne(input)
+    return await this.messageRepository.findOne({ ...input })
   }
 
-  async delete(id: Message['id']): Promise<Message['id'] | null> {
-    const result = await this.messageRepository.delete(id)
+  async delete(id: Message['id'], userId: User['id']): Promise<Message['id']> {
+    const message = await this.messageRepository.findOne({
+      where: {
+        id,
+        user: { id: userId }
+      }
+    })
 
-    if (result.affected) return id
+    if (!message) throw new NotFoundException('Message not found')
 
-    return null
+    await this.messageRepository.delete(id)
+
+    return id
   }
 
   async pagination(

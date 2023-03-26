@@ -1,3 +1,4 @@
+import { Inject, UseGuards } from '@nestjs/common'
 import {
   Resolver,
   Query,
@@ -7,26 +8,26 @@ import {
   ResolveField,
   Parent
 } from '@nestjs/graphql'
-import { Inject, UseGuards } from '@nestjs/common'
 
 import { ConversationService } from './conversation.service'
-import { Conversation } from './entities/conversation.entity'
+import { CloseConversationArgs } from './dto/close-conversation.input'
 import {
   CreateConversationInput,
   CreateConversationOutput
 } from './dto/create-conversation.input'
-import { FindOneConversationArgs } from './dto/findone-conversation.input'
 import { DeleteConversationArgs } from './dto/delete-conversation.input'
-import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
+import { FindOneConversationArgs } from './dto/findone-conversation.input'
+import { Conversation } from './entities/conversation.entity'
 import { UserPayload } from '@/auth/dto/payload-user.dto'
-import { Services } from '@/utils/constants'
-import { User } from '@/user/entities/user.entity'
-import { UserService } from '@/user/user.service'
+import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
 import { Message } from '@/message/entities/message.entity'
 import { MessageService } from '@/message/message.service'
-import { CloseConversationArgs } from './dto/close-conversation.input'
+import { User } from '@/user/entities/user.entity'
+import { UserService } from '@/user/user.service'
+import { Services } from '@/utils/constants'
 
 @Resolver(() => Conversation)
+@UseGuards(JwtAuthGuard)
 export class ConversationResolver {
   constructor(
     @Inject(Services.CONVERSATION)
@@ -37,7 +38,6 @@ export class ConversationResolver {
     private readonly messageService: MessageService
   ) {}
 
-  @UseGuards(JwtAuthGuard)
   @Mutation(() => CreateConversationOutput, {
     name: 'CreateConversation',
     description: 'Create a new conversation.'
@@ -49,17 +49,16 @@ export class ConversationResolver {
     return this.conversationService.create(input, user.id)
   }
 
-  @UseGuards(JwtAuthGuard)
   @Query(() => Conversation, {
     name: 'FindOneConversation',
     description: 'Find one conversation by id.',
     nullable: true
   })
-  findOne(
+  async findOne(
     @Args() args: FindOneConversationArgs,
     @CurrentUser() user: UserPayload
-  ) {
-    return this.conversationService.findOne({
+  ): Promise<Conversation | null> {
+    return await this.conversationService.findOne({
       where: [
         {
           id: args.id,
@@ -79,19 +78,31 @@ export class ConversationResolver {
 
   @Mutation(() => ID, {
     name: 'DeleteConversation',
-    description: 'Delete a conversation by id.',
-    nullable: true
+    description: 'Delete a conversation by id.'
   })
-  delete(@Args() args: DeleteConversationArgs) {
-    return this.conversationService.delete(args.id)
+  async delete(
+    @Args() args: DeleteConversationArgs
+  ): Promise<Conversation['id']> {
+    return await this.conversationService.delete(args.id)
+  }
+
+  @Mutation(() => Conversation, {
+    name: 'CloseConversation',
+    description: 'Close a conversation for user.'
+  })
+  async closeConversation(
+    @Args() args: CloseConversationArgs,
+    @CurrentUser() user: UserPayload
+  ): Promise<Conversation> {
+    return this.conversationService.closeConversation(args.id, user.id)
   }
 
   @ResolveField(() => User, {
     name: 'user1',
     description: 'Get the first user of the conversation.'
   })
-  async user1(@Parent() conversation: Conversation) {
-    return this.userService.findOne({
+  async user1(@Parent() conversation: Conversation): Promise<User> {
+    return await this.userService.findOne({
       where: {
         id: conversation.user1Id
       }
@@ -102,8 +113,8 @@ export class ConversationResolver {
     name: 'user2',
     description: 'Get the second user of the conversation.'
   })
-  async user2(@Parent() conversation: Conversation) {
-    return this.userService.findOne({
+  async user2(@Parent() conversation: Conversation): Promise<User> {
+    return await this.userService.findOne({
       where: {
         id: conversation.user2Id
       }
@@ -115,8 +126,8 @@ export class ConversationResolver {
     description: 'Get the last message of the conversation.',
     nullable: true
   })
-  async lastMessage(@Parent() conversation: Conversation) {
-    return this.messageService.findOne({
+  async lastMessage(@Parent() conversation: Conversation): Promise<Message> {
+    return await this.messageService.findOne({
       where: {
         conversation: {
           id: conversation.id
@@ -126,18 +137,5 @@ export class ConversationResolver {
         createdAt: 'DESC'
       }
     })
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Mutation(() => Conversation, {
-    name: 'CloseConversation',
-    description: 'Close a conversation for user.',
-    nullable: true
-  })
-  async closeConversation(
-    @Args() args: CloseConversationArgs,
-    @CurrentUser() user: UserPayload
-  ) {
-    return this.conversationService.closeConversation(args.id, user.id)
   }
 }
