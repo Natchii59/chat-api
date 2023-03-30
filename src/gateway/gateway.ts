@@ -95,6 +95,34 @@ export class GatewayGateway
       ?.emit('onMessageCreatedSidebar', { message: data.message })
   }
 
+  @SubscribeMessage('updateMessage')
+  async updateMessage(
+    @MessageBody()
+    data: {
+      message: Message
+      conversationId: string
+      user1Id: string
+      user2Id: string
+    }
+  ) {
+    console.log(
+      `${data.message.user.username} update message ${data.message.id} in conversation ${data.conversationId}`
+    )
+
+    this.server
+      .to(`conversation-${data.conversationId}`)
+      .emit('onMessageUpdated', { message: data.message })
+
+    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageUpdatedSidebar', {
+      message: data.message,
+      conversationId: data.conversationId
+    })
+    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageUpdatedSidebar', {
+      message: data.message,
+      conversationId: data.conversationId
+    })
+  }
+
   @SubscribeMessage('deleteMessage')
   async onMessageDeleted(
     @MessageBody()

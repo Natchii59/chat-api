@@ -16,6 +16,7 @@ import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { UpdateMessageInput } from './dto/update-message.input'
 import { Message } from './entities/message.entity'
 import { MessageService } from './message.service'
 import { UserPayload } from '@/auth/dto/payload-user.dto'
@@ -64,11 +65,22 @@ export class MessageResolver {
     })
   }
 
+  @Mutation(() => Message, {
+    name: 'UpdateMessage',
+    description: 'Update a message by id.'
+  })
+  async update(
+    @Args('input') input: UpdateMessageInput,
+    @CurrentUser() user: UserPayload
+  ): Promise<Message> {
+    return await this.messageService.update(input, user.id)
+  }
+
   @Mutation(() => ID, {
     name: 'DeleteMessage',
     description: 'Delete a message by id.'
   })
-  async removeMessage(
+  async deleteMessage(
     @Args() args: DeleteMessageArgs,
     @CurrentUser() user: UserPayload
   ): Promise<Message['id'] | null> {

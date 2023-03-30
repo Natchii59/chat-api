@@ -13,7 +13,9 @@ import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { UpdateMessageInput } from './dto/update-message.input'
 import { Message } from './entities/message.entity'
+import { MessageNotFoundException } from './exceptions/message-not-found.exception'
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { ConversationNotFoundException } from '@/conversation/exceptions/conversation-not-found.exception'
 import { SortDirection } from '@/database/dto/pagination.dto'
@@ -47,7 +49,7 @@ export class MessageService {
     const message = this.messageRepository.create({
       content: input.content,
       user: { id: userId },
-      conversation: { id: input.conversationId }
+      conversation
     })
 
     const otherUser =
@@ -68,6 +70,25 @@ export class MessageService {
     return await this.messageRepository.findOne({ ...input })
   }
 
+  async update(
+    input: UpdateMessageInput,
+    userId: User['id']
+  ): Promise<Message> {
+    const message = await this.messageRepository.findOne({
+      where: {
+        id: input.id,
+        user: { id: userId }
+      }
+    })
+
+    if (!message) throw new MessageNotFoundException()
+
+    message.content = input.content
+    message.isModified = true
+
+    return await this.messageRepository.save(message)
+  }
+
   async delete(id: Message['id'], userId: User['id']): Promise<Message['id']> {
     const message = await this.messageRepository.findOne({
       where: {
@@ -76,7 +97,7 @@ export class MessageService {
       }
     })
 
-    if (!message) throw new NotFoundException('Message not found')
+    if (!message) throw new MessageNotFoundException()
 
     await this.messageRepository.delete(id)
 

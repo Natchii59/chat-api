@@ -15,6 +15,9 @@ type Message {
   """Content of the message"""
   content: String!
 
+  """Whether the message is modified"""
+  isModified: Boolean!
+
   """The user who created the message."""
   user: User
 
@@ -260,6 +263,9 @@ type Mutation {
   """Create a new message."""
   CreateMessage(input: CreateMessageInput!): Message!
 
+  """Update a message by id."""
+  UpdateMessage(input: UpdateMessageInput!): Message!
+
   """Delete a message by id."""
   DeleteMessage(
     """Id of message"""
@@ -307,6 +313,14 @@ input CreateMessageInput {
 
   """ID of the conversation"""
   conversationId: ID!
+}
+
+input UpdateMessageInput {
+  """ID of the message"""
+  id: ID!
+
+  """Content of the message"""
+  content: String!
 }
 
 input CreateUserInput {

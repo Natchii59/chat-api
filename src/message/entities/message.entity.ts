@@ -12,6 +12,10 @@ export class Message extends Node {
   @Field(() => String, { description: 'Content of the message' })
   content: string
 
+  @Column({ default: false })
+  @Field(() => Boolean, { description: 'Whether the message is modified' })
+  isModified: boolean
+
   @ManyToOne(() => User, (user) => user.messages, {
     onDelete: 'CASCADE'
   })
