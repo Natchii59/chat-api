@@ -53,6 +53,17 @@ export class UserService {
 
     if (!user) throw new UserNotFoundException()
 
+    if (input.username && input.username !== user.username) {
+      if (await this.userRepository.findOneBy({ username: input.username })) {
+        throw new BadRequestException([
+          {
+            code: 'username',
+            message: 'The username already exists.'
+          }
+        ])
+      }
+    }
+
     if (input.password) input.password = await hashData(input.password)
 
     if (input.avatar) {
