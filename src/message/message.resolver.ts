@@ -89,8 +89,7 @@ export class MessageResolver {
 
   @ResolveField(() => User, {
     name: 'user',
-    description: 'The user who created the message.',
-    nullable: true
+    description: 'The user who created the message.'
   })
   async user(@Parent() message: Message): Promise<User> {
     return await this.userService.findOne({ where: { id: message.userId } })
@@ -98,8 +97,7 @@ export class MessageResolver {
 
   @ResolveField(() => Conversation, {
     name: 'conversation',
-    description: 'The conversation the message belongs to.',
-    nullable: true
+    description: 'The conversation the message belongs to.'
   })
   async conversation(@Parent() message: Message): Promise<Conversation> {
     return await this.conversationService.findOne({

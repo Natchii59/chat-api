@@ -22,4 +22,8 @@ export class GatewaySessionManager {
   getSockets(): Map<User['id'], Socket> {
     return this.sessions
   }
+
+  getSocketsByIds(ids: User['id'][]): Socket[] {
+    return ids.map((id) => this.sessions.get(id)).filter((socket) => !!socket)
+  }
 }

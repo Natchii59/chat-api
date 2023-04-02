@@ -19,10 +19,10 @@ type Message {
   isModified: Boolean!
 
   """The user who created the message."""
-  user: User
+  user: User!
 
   """The conversation the message belongs to."""
-  conversation: Conversation
+  conversation: Conversation!
 }
 
 """
@@ -40,11 +40,8 @@ type Conversation {
   """Date and time when the resource was last updated."""
   updatedAt: DateTime!
 
-  """Get the first user of the conversation."""
-  user1: User!
-
-  """Get the second user of the conversation."""
-  user2: User!
+  """Get the other user of the conversation."""
+  user: User!
 
   """Get the last message of the conversation."""
   lastMessage: Message
@@ -102,28 +99,6 @@ type TokensOutput {
 
   """Access Token of user"""
   refreshToken: String!
-}
-
-type SignInOutput {
-  """Access Token of user"""
-  accessToken: String!
-
-  """Access Token of user"""
-  refreshToken: String!
-
-  """Current user"""
-  user: User!
-}
-
-type SignUpOutput {
-  """Access Token of user"""
-  accessToken: String!
-
-  """Access Token of user"""
-  refreshToken: String!
-
-  """Current user"""
-  user: User!
 }
 
 type CreateConversationOutput {
@@ -273,7 +248,7 @@ type Mutation {
   ): ID!
 
   """Sign up User"""
-  SignUp(input: CreateUserInput!): SignUpOutput!
+  SignUp(input: CreateUserInput!): User!
 
   """Sign in User"""
   SignIn(
@@ -282,7 +257,7 @@ type Mutation {
 
     """Password of user"""
     password: String!
-  ): SignInOutput!
+  ): User!
 
   """Refresh Tokens of current user"""
   RefreshTokens: TokensOutput!

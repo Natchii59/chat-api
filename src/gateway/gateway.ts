@@ -8,6 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer
 } from '@nestjs/websockets'
+import { parse } from 'cookie'
 import { Server, Socket } from 'socket.io'
 
 import { GatewaySessionManager } from './gateway.session'
@@ -21,7 +22,8 @@ import { Services } from '@/utils/constants'
 
 @WebSocketGateway({
   cors: {
-    origin: [process.env.CLIENT_URL]
+    origin: [process.env.CLIENT_URL],
+    credentials: true
   }
 })
 export class GatewayGateway
@@ -41,9 +43,12 @@ export class GatewayGateway
 
   async handleConnection(socket: Socket) {
     try {
-      const userPayload = await this.authService.verifyAccessToken(
-        socket.handshake.auth.token
-      )
+      const { cookie: rawCookie } = socket.handshake.headers
+      const cookie = parse(rawCookie)
+
+      const token = cookie['accessToken']
+
+      const userPayload = await this.authService.verifyAccessToken(token)
       const user = await this.userService.findOne({
         where: { id: userPayload.id },
         select: ['id', 'username', 'createdAt'],
@@ -78,21 +83,36 @@ export class GatewayGateway
   }
 
   @SubscribeMessage('createMessage')
-  async createMessage(@MessageBody() data: { message: Message }) {
+  async createMessage(
+    @MessageBody()
+    data: {
+      message: Message
+      conversationId: Conversation['id']
+      user1Id: User['id']
+      user2Id: User['id']
+    },
+    @ConnectedSocket() socket: Socket
+  ) {
     console.log(
-      `${data.message.user.username} send message to ${data.message.conversation.id}`
+      `${data.message.user.username} send message to ${data.conversationId}`
     )
 
     this.server
-      .to(`conversation-${data.message.conversation.id}`)
+      .to(`conversation-${data.conversationId}`)
       .emit('onMessageCreated', { message: data.message })
 
-    this.sessions
-      .getUserSocket(data.message.conversation.user1.id)
-      ?.emit('onMessageCreatedSidebar', { message: data.message })
-    this.sessions
-      .getUserSocket(data.message.conversation.user2.id)
-      ?.emit('onMessageCreatedSidebar', { message: data.message })
+    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageCreatedSidebar', {
+      message: data.message
+    })
+    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageCreatedSidebar', {
+      message: {
+        ...data.message,
+        conversation: {
+          ...data.message.conversation,
+          user: socket.data.user
+        }
+      }
+    })
   }
 
   @SubscribeMessage('updateMessage')
@@ -127,8 +147,8 @@ export class GatewayGateway
   async onMessageDeleted(
     @MessageBody()
     data: {
-      conversationId: string
       messageId: string
+      conversationId: string
       user1Id: string
       user2Id: string
     },
@@ -361,5 +381,32 @@ export class GatewayGateway
     this.sessions
       .getUserSocket(data.conversation.user2.id)
       ?.emit('onConversationCreated', { conversation: data.conversation })
+  }
+
+  @SubscribeMessage('getFriendsStatus')
+  async getFriendsStatus(
+    @MessageBody() data: { userIds: string[] },
+    @ConnectedSocket() socket: Socket
+  ) {
+    const friendsStatusIds = this.sessions
+      .getSocketsByIds(data.userIds)
+      .map((s) => s.data.user.id)
+
+    socket.emit('onFriendsStatus', { friendsStatusIds })
+  }
+
+  @SubscribeMessage('onConnected')
+  async onConnected(
+    @MessageBody() data: { userIds: string[] },
+    @ConnectedSocket() socket: Socket
+  ) {
+    data.userIds.forEach((userId) => {
+      const userSocket = this.sessions.getUserSocket(userId)
+      if (userSocket) {
+        userSocket.emit('onFriendsStatusConnected', {
+          userId: socket.data.user.id
+        })
+      }
+    })
   }
 }

@@ -1,13 +1,9 @@
 import { Inject, UseGuards } from '@nestjs/common'
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Request, Response } from 'express'
 
 import { AuthService } from './auth.service'
-import {
-  SignInArgs,
-  SignInOutput,
-  SignUpOutput,
-  TokensOutput
-} from './dto/auth.dto'
+import { SignInArgs, TokensOutput } from './dto/auth.dto'
 import { UserPayload } from './dto/payload-user.dto'
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh-auth.guard'
 import { JwtAuthGuard, CurrentUser } from './guards/jwt.guard'
@@ -24,24 +20,28 @@ export class AuthResolver {
     @Inject(Services.USER) private readonly userService: UserService
   ) {}
 
-  @Mutation(() => SignUpOutput, {
+  @Mutation(() => User, {
     name: 'SignUp',
     description: 'Sign up User'
   })
-  async signUp(@Args('input') input: CreateUserInput): Promise<SignUpOutput> {
-    return await this.authService.signUp(input)
+  async signUp(
+    @Args('input') input: CreateUserInput,
+    @Context('res') res: Response
+  ): Promise<User> {
+    return await this.authService.signUp(input, res)
   }
 
   @UseGuards(LocalAuthGuard)
-  @Mutation(() => SignInOutput, {
+  @Mutation(() => User, {
     name: 'SignIn',
     description: 'Sign in User'
   })
   async signIn(
     @Args() _args: SignInArgs,
-    @CurrentUser() user: UserPayload
-  ): Promise<SignInOutput> {
-    return await this.authService.signIn(user)
+    @CurrentUser() user: UserPayload,
+    @Context('res') res: Response
+  ): Promise<User> {
+    return await this.authService.signIn(user, res)
   }
 
   @UseGuards(JwtAuthGuard)
@@ -49,8 +49,11 @@ export class AuthResolver {
     name: 'Logout',
     description: 'Logout current user'
   })
-  async logout(@CurrentUser() user: UserPayload): Promise<boolean> {
-    await this.authService.logout(user.id)
+  async logout(
+    @CurrentUser() user: UserPayload,
+    @Context('res') res: Response
+  ): Promise<boolean> {
+    await this.authService.logout(user.id, res)
     return true
   }
 
@@ -70,7 +73,11 @@ export class AuthResolver {
     name: 'RefreshTokens',
     description: 'Refresh Tokens of current user'
   })
-  async refreshTokens(@CurrentUser() user: UserPayload): Promise<TokensOutput> {
-    return await this.authService.refreshTokens(user.id, user.refreshToken)
+  async refreshTokens(
+    @CurrentUser() user: UserPayload,
+    @Context('req') req: Request,
+    @Context('res') res: Response
+  ): Promise<TokensOutput> {
+    return await this.authService.refreshTokens(user.id, { req, res })
   }
 }

@@ -1,11 +1,17 @@
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo'
-import { Module } from '@nestjs/common'
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod
+} from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { GraphQLModule } from '@nestjs/graphql'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AuthModule } from './auth/auth.module'
+import { JwtMiddleware } from './auth/middlewares/jwt.middleware'
 import { ConversationModule } from './conversation/conversation.module'
 import { GatewayModule } from './gateway/gateway.module'
 import { ImageModule } from './image/image.module'
@@ -40,6 +46,7 @@ import { join } from 'path'
       autoSchemaFile: 'schema.gql',
       fieldResolverEnhancers: ['guards'],
       plugins: [ApolloServerPluginLandingPageLocalDefault()],
+      context: ({ req, res }) => ({ req, res }),
       formatError: (error) => {
         if (error.extensions.originalError) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,4 +70,10 @@ import { join } from 'path'
     ImageModule
   ]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(JwtMiddleware)
+      .forRoutes({ path: 'graphql', method: RequestMethod.POST })
+  }
+}

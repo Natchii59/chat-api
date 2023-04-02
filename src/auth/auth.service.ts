@@ -1,8 +1,9 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { compare } from 'bcrypt'
+import { Request, Response } from 'express'
 
-import { SignInOutput, SignUpOutput, TokensOutput } from './dto/auth.dto'
+import { TokensOutput } from './dto/auth.dto'
 import { UserPayload } from './dto/payload-user.dto'
 import { CreateUserInput } from '@/user/dto/create-user.input'
 import { User } from '@/user/entities/user.entity'
@@ -35,7 +36,7 @@ export class AuthService {
     return null
   }
 
-  async signUp(input: CreateUserInput): Promise<SignUpOutput> {
+  async signUp(input: CreateUserInput, res: Response): Promise<User> {
     const user = await this.userService.create(input)
 
     const tokens = await this.getTokens({
@@ -44,28 +45,50 @@ export class AuthService {
 
     await this.updateRefreshToken(user.id, tokens.refreshToken)
 
-    return {
-      ...tokens,
-      user
-    }
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    })
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    })
+
+    return user
   }
 
-  async signIn(payload: UserPayload): Promise<SignInOutput> {
+  async signIn(payload: UserPayload, res: Response): Promise<User> {
     const tokens = await this.getTokens(payload)
     await this.updateRefreshToken(payload.id, tokens.refreshToken)
 
-    const user = await this.userService.findOne({
-      where: { id: payload.id }
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
     })
 
-    return {
-      ...tokens,
-      user
-    }
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    })
+
+    return await this.userService.findOne({
+      where: { id: payload.id }
+    })
   }
 
-  async logout(id: User['id']): Promise<void> {
-    await this.userService.update(id, { refreshToken: null })
+  async logout(id: User['id'], res: Response): Promise<void> {
+    await this.updateRefreshToken(id, null)
+    res.clearCookie('accessToken')
+    res.clearCookie('refreshToken')
   }
 
   async getTokens(payload: UserPayload): Promise<TokensOutput> {
@@ -76,7 +99,7 @@ export class AuthService {
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_TOKEN_SECRET,
-        expiresIn: '1y'
+        expiresIn: '7d'
       })
     ])
 
@@ -88,15 +111,15 @@ export class AuthService {
 
   async updateRefreshToken(
     id: User['id'],
-    refreshToken: User['refreshToken']
+    refreshToken: User['refreshToken'] | null
   ): Promise<void> {
-    refreshToken = await hashData(refreshToken)
+    if (refreshToken) refreshToken = await hashData(refreshToken)
     await this.userService.update(id, { refreshToken })
   }
 
   async refreshTokens(
     id: User['id'],
-    refreshToken: User['refreshToken']
+    context: { req: Request; res: Response }
   ): Promise<TokensOutput> {
     const user = await this.userService.findOne({
       where: { id }
@@ -104,18 +127,34 @@ export class AuthService {
 
     if (!user) throw new UserNotFoundException()
 
-    if (!user.refreshToken)
-      throw new UnauthorizedException('The user is not logged in.')
+    const refreshToken = context.req.cookies['refreshToken']
+
+    if (!refreshToken)
+      throw new UnauthorizedException('Refresh token not provided.')
 
     const matchTokens = await compare(refreshToken, user.refreshToken)
 
-    if (!matchTokens) throw new UnauthorizedException('Invalid token.')
+    if (!matchTokens) throw new UnauthorizedException('Invalid refresh token.')
 
     const tokens = await this.getTokens({
       id: user.id
     })
 
     await this.updateRefreshToken(id, tokens.refreshToken)
+
+    context.res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    })
+
+    context.res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production'
+    })
 
     return tokens
   }
@@ -124,6 +163,16 @@ export class AuthService {
     try {
       return await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_ACCESS_TOKEN_SECRET
+      })
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token.')
+    }
+  }
+
+  async verifyRefreshToken(token: string): Promise<UserPayload> {
+    try {
+      return await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_REFRESH_TOKEN_SECRET
       })
     } catch (error) {
       throw new UnauthorizedException('Invalid token.')

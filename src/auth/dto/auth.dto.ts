@@ -19,15 +19,3 @@ export class TokensOutput {
   @Field(() => String, { description: 'Access Token of user' })
   refreshToken: User['refreshToken']
 }
-
-@ObjectType()
-export class SignInOutput extends TokensOutput {
-  @Field(() => User, { description: 'Current user' })
-  user: User
-}
-
-@ObjectType()
-export class SignUpOutput extends TokensOutput {
-  @Field(() => User, { description: 'Current user' })
-  user: User
-}

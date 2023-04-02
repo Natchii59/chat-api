@@ -98,25 +98,21 @@ export class ConversationResolver {
   }
 
   @ResolveField(() => User, {
-    name: 'user1',
-    description: 'Get the first user of the conversation.'
+    name: 'user',
+    description: 'Get the other user of the conversation.'
   })
-  async user1(@Parent() conversation: Conversation): Promise<User> {
-    return await this.userService.findOne({
-      where: {
-        id: conversation.user1Id
-      }
-    })
-  }
+  async user(
+    @Parent() conversation: Conversation,
+    @CurrentUser() user: UserPayload
+  ): Promise<User> {
+    const otherUserId =
+      conversation.user1Id === user.id
+        ? conversation.user2Id
+        : conversation.user1Id
 
-  @ResolveField(() => User, {
-    name: 'user2',
-    description: 'Get the second user of the conversation.'
-  })
-  async user2(@Parent() conversation: Conversation): Promise<User> {
     return await this.userService.findOne({
       where: {
-        id: conversation.user2Id
+        id: otherUserId
       }
     })
   }
