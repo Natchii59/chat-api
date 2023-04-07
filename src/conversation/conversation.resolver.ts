@@ -8,6 +8,7 @@ import {
   ResolveField,
   Parent
 } from '@nestjs/graphql'
+import { Not } from 'typeorm'
 
 import { ConversationService } from './conversation.service'
 import { CloseConversationArgs } from './dto/close-conversation.input'
@@ -17,12 +18,13 @@ import {
 } from './dto/create-conversation.input'
 import { DeleteConversationArgs } from './dto/delete-conversation.input'
 import { FindOneConversationArgs } from './dto/findone-conversation.input'
+import { UserConversation } from './dto/user-conversation.output'
 import { Conversation } from './entities/conversation.entity'
 import { UserPayload } from '@/auth/dto/payload-user.dto'
 import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
-import { Message } from '@/message/entities/message.entity'
+import { Image } from '@/image/entities/image.entity'
+import { ImageService } from '@/image/image.service'
 import { MessageService } from '@/message/message.service'
-import { User } from '@/user/entities/user.entity'
 import { UserService } from '@/user/user.service'
 import { Services } from '@/utils/constants'
 
@@ -38,17 +40,6 @@ export class ConversationResolver {
     private readonly messageService: MessageService
   ) {}
 
-  @Mutation(() => CreateConversationOutput, {
-    name: 'CreateConversation',
-    description: 'Create a new conversation.'
-  })
-  async create(
-    @Args('input') input: CreateConversationInput,
-    @CurrentUser() user: UserPayload
-  ): Promise<CreateConversationOutput> {
-    return this.conversationService.create(input, user.id)
-  }
-
   @Query(() => Conversation, {
     name: 'FindOneConversation',
     description: 'Find one conversation by id.',
@@ -62,18 +53,39 @@ export class ConversationResolver {
       where: [
         {
           id: args.id,
-          user1: {
+          creator: {
             id: user.id
           }
         },
         {
           id: args.id,
-          user2: {
+          recipient: {
             id: user.id
           }
         }
       ]
     })
+  }
+
+  @Query(() => [Conversation], {
+    name: 'UserConversations',
+    description: 'Find all conversations for user.'
+  })
+  async getUserConversations(
+    @CurrentUser() user: UserPayload
+  ): Promise<Conversation[] | null> {
+    return await this.conversationService.getUserConversations(user.id)
+  }
+
+  @Mutation(() => CreateConversationOutput, {
+    name: 'CreateConversation',
+    description: 'Create a new conversation.'
+  })
+  async create(
+    @Args('input') input: CreateConversationInput,
+    @CurrentUser() user: UserPayload
+  ): Promise<CreateConversationOutput> {
+    return this.conversationService.create(input, user.id)
   }
 
   @Mutation(() => ID, {
@@ -97,41 +109,118 @@ export class ConversationResolver {
     return this.conversationService.closeConversation(args.id, user.id)
   }
 
-  @ResolveField(() => User, {
-    name: 'user',
-    description: 'Get the other user of the conversation.'
+  @ResolveField(() => UserConversation, {
+    name: 'creator',
+    description: 'Get the creator of the conversation.'
   })
-  async user(
-    @Parent() conversation: Conversation,
-    @CurrentUser() user: UserPayload
-  ): Promise<User> {
-    const otherUserId =
-      conversation.user1Id === user.id
-        ? conversation.user2Id
-        : conversation.user1Id
-
-    return await this.userService.findOne({
+  async creator(
+    @Parent() conversation: Conversation
+  ): Promise<UserConversation> {
+    const user = await this.userService.findOne({
       where: {
-        id: otherUserId
+        id: conversation.creatorId
       }
     })
-  }
 
-  @ResolveField(() => Message, {
-    name: 'lastMessage',
-    description: 'Get the last message of the conversation.',
-    nullable: true
-  })
-  async lastMessage(@Parent() conversation: Conversation): Promise<Message> {
-    return await this.messageService.findOne({
+    const firstUnreadMessage = await this.messageService.findOne({
       where: {
         conversation: {
           id: conversation.id
-        }
+        },
+        user: {
+          id: Not(user.id)
+        },
+        unreadBy: { id: user.id }
       },
       order: {
-        createdAt: 'DESC'
+        createdAt: 'ASC'
       }
+    })
+
+    const unreadMessagesCount = await this.messageService.count({
+      where: {
+        conversation: {
+          id: conversation.id
+        },
+        user: {
+          id: Not(user.id)
+        },
+        unreadBy: { id: user.id }
+      }
+    })
+
+    return {
+      ...user,
+      firstUnreadMessageId: firstUnreadMessage?.id,
+      unreadMessagesCount
+    }
+  }
+
+  @ResolveField(() => UserConversation, {
+    name: 'recipient',
+    description: 'Get the recipient of the conversation.'
+  })
+  async recipient(
+    @Parent() conversation: Conversation
+  ): Promise<UserConversation> {
+    const user = await this.userService.findOne({
+      where: {
+        id: conversation.recipientId
+      }
+    })
+
+    const firstUnreadMessage = await this.messageService.findOne({
+      where: {
+        conversation: {
+          id: conversation.id
+        },
+        user: {
+          id: Not(user.id)
+        },
+        unreadBy: { id: user.id }
+      },
+      order: {
+        createdAt: 'ASC'
+      }
+    })
+
+    const unreadMessagesCount = await this.messageService.count({
+      where: {
+        conversation: {
+          id: conversation.id
+        },
+        user: {
+          id: Not(user.id)
+        },
+        unreadBy: { id: user.id }
+      }
+    })
+
+    return {
+      ...user,
+      firstUnreadMessageId: firstUnreadMessage?.id,
+      unreadMessagesCount
+    }
+  }
+}
+
+@Resolver(UserConversation)
+export class UserConversationResolver {
+  constructor(
+    @Inject(Services.IMAGE)
+    private readonly imageService: ImageService
+  ) {}
+
+  @ResolveField(() => Image, {
+    name: 'avatar',
+    description: 'Avatar of a user.',
+    nullable: true
+  })
+  async avatar(@Parent() user: UserConversation): Promise<Image | null> {
+    if (!user.avatarId) return null
+
+    return await this.imageService.findOne({
+      where: { id: user.avatarId }
     })
   }
 }

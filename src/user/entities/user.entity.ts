@@ -38,9 +38,9 @@ export class User extends Node {
   @OneToMany(() => Message, (message) => message.user)
   messages: Message[]
 
-  @ManyToMany(
+  @OneToMany(
     () => Conversation,
-    (conversation) => conversation.user1 || conversation.user2
+    (conversation) => conversation.creator || conversation.recipient
   )
   conversations: Conversation[]
 
@@ -90,4 +90,9 @@ export class User extends Node {
     onDelete: 'CASCADE'
   })
   closedConversations: Conversation[]
+
+  @ManyToMany(() => Message, (message) => message.unreadBy, {
+    onDelete: 'CASCADE'
+  })
+  unreadMessages: Message[]
 }

@@ -1,9 +1,13 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
-import { ConversationResolver } from './conversation.resolver'
+import {
+  ConversationResolver,
+  UserConversationResolver
+} from './conversation.resolver'
 import { ConversationService } from './conversation.service'
 import { Conversation } from './entities/conversation.entity'
+import { ImageModule } from '@/image/image.module'
 import { MessageModule } from '@/message/message.module'
 import { UserModule } from '@/user/user.module'
 import { Services } from '@/utils/constants'
@@ -12,14 +16,16 @@ import { Services } from '@/utils/constants'
   imports: [
     TypeOrmModule.forFeature([Conversation]),
     forwardRef(() => UserModule),
-    MessageModule
+    MessageModule,
+    ImageModule
   ],
   providers: [
     {
       provide: Services.CONVERSATION,
       useClass: ConversationService
     },
-    ConversationResolver
+    ConversationResolver,
+    UserConversationResolver
   ],
   exports: [Services.CONVERSATION]
 })

@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import {
   FindManyOptions,
   FindOneOptions,
   FindOptionsWhere,
   LessThan,
+  Not,
   Repository
 } from 'typeorm'
 
@@ -20,6 +21,9 @@ import { Conversation } from '@/conversation/entities/conversation.entity'
 import { ConversationNotFoundException } from '@/conversation/exceptions/conversation-not-found.exception'
 import { SortDirection } from '@/database/dto/pagination.dto'
 import { User } from '@/user/entities/user.entity'
+import { UserNotFoundException } from '@/user/exceptions/user-not-found.exception'
+import { UserService } from '@/user/user.service'
+import { Services } from '@/utils/constants'
 
 @Injectable()
 export class MessageService {
@@ -27,7 +31,8 @@ export class MessageService {
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
     @InjectRepository(Conversation)
-    private readonly conversationRepository: Repository<Conversation>
+    private readonly conversationRepository: Repository<Conversation>,
+    @Inject(Services.USER) private readonly userService: UserService
   ) {}
 
   async create(
@@ -35,25 +40,32 @@ export class MessageService {
     userId: User['id']
   ): Promise<Message> {
     const conversation = await this.conversationRepository.findOne({
-      where: {
-        id: input.conversationId
-      },
-      relations: ['closedBy', 'user1', 'user2']
+      where: [
+        {
+          id: input.conversationId,
+          creator: { id: userId }
+        },
+        {
+          id: input.conversationId,
+          recipient: { id: userId }
+        }
+      ],
+      relations: ['closedBy', 'creator', 'recipient']
     })
 
     if (!conversation) throw new ConversationNotFoundException()
 
-    if (conversation.user1.id !== userId && conversation.user2.id !== userId)
-      throw new NotFoundException('Invalid conversation or user')
+    const otherUser =
+      conversation.creator.id === userId
+        ? conversation.recipient
+        : conversation.creator
 
     const message = this.messageRepository.create({
       content: input.content,
       user: { id: userId },
-      conversation
+      conversation: { id: conversation.id },
+      unreadBy: [{ id: otherUser.id }]
     })
-
-    const otherUser =
-      conversation.user1.id === userId ? conversation.user2 : conversation.user1
 
     if (conversation.closedBy.some((user) => user.id === otherUser.id)) {
       conversation.closedBy = conversation.closedBy.filter(
@@ -70,6 +82,14 @@ export class MessageService {
     return await this.messageRepository.findOne({ ...input })
   }
 
+  async find(input: FindManyOptions<Message>): Promise<Message[]> {
+    return await this.messageRepository.find({ ...input })
+  }
+
+  async count(input: FindManyOptions<Message>): Promise<number> {
+    return await this.messageRepository.count({ ...input })
+  }
+
   async update(
     input: UpdateMessageInput,
     userId: User['id']
@@ -83,10 +103,14 @@ export class MessageService {
 
     if (!message) throw new MessageNotFoundException()
 
-    message.content = input.content
-    message.isModified = true
+    if (input.content && !message.isModified) {
+      message.isModified = true
+    }
 
-    return await this.messageRepository.save(message)
+    return await this.messageRepository.save({
+      ...message,
+      ...input
+    })
   }
 
   async delete(id: Message['id'], userId: User['id']): Promise<Message['id']> {
@@ -126,7 +150,7 @@ export class MessageService {
           if (where.conversationId) {
             whereObject.conversation = {
               id: where.conversationId,
-              user1: { id: userId }
+              creator: { id: userId }
             }
           }
 
@@ -144,7 +168,7 @@ export class MessageService {
             ...where,
             conversation: {
               id: where.conversation['id'],
-              user2: { id: userId }
+              recipient: { id: userId }
             }
           })
         }
@@ -169,5 +193,33 @@ export class MessageService {
       nodes,
       totalCount
     }
+  }
+
+  async readMessagesConversation(
+    conversationId: Conversation['id'],
+    userId: User['id']
+  ): Promise<Message['id'][]> {
+    const user = await this.userService.findOne({
+      where: { id: userId }
+    })
+
+    if (!user) throw new UserNotFoundException()
+
+    const messages = await this.messageRepository.find({
+      where: {
+        conversation: { id: conversationId },
+        user: { id: Not(userId) },
+        unreadBy: { id: userId }
+      },
+      relations: ['unreadBy']
+    })
+
+    messages.forEach((message) => {
+      message.unreadBy = message.unreadBy.filter((user) => user.id !== userId)
+    })
+
+    await this.messageRepository.save(messages)
+
+    return messages.map((message) => message.id)
   }
 }

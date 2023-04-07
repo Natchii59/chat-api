@@ -16,6 +16,7 @@ import {
   PaginationMessage,
   PaginationMessageArgs
 } from './dto/pagination-message.dto'
+import { ReadMessagesArgs } from './dto/read-message.input'
 import { UpdateMessageInput } from './dto/update-message.input'
 import { Message } from './entities/message.entity'
 import { MessageService } from './message.service'
@@ -37,17 +38,6 @@ export class MessageResolver {
     private readonly conversationService: ConversationService
   ) {}
 
-  @Mutation(() => Message, {
-    name: 'CreateMessage',
-    description: 'Create a new message.'
-  })
-  async create(
-    @Args('input') input: CreateMessageInput,
-    @CurrentUser() user: UserPayload
-  ): Promise<Message> {
-    return await this.messageService.create(input, user.id)
-  }
-
   @Query(() => Message, {
     name: 'FindOneMessage',
     description: 'Find one message by id.',
@@ -58,11 +48,47 @@ export class MessageResolver {
     @CurrentUser() user: UserPayload
   ): Promise<Message | null> {
     return await this.messageService.findOne({
-      where: {
-        id: args.id,
-        user: { id: user.id }
-      }
+      where: [
+        {
+          id: args.id,
+          conversation: {
+            creator: {
+              id: user.id
+            }
+          }
+        },
+        {
+          id: args.id,
+          conversation: {
+            recipient: {
+              id: user.id
+            }
+          }
+        }
+      ]
     })
+  }
+
+  @Query(() => PaginationMessage, {
+    name: 'PaginationMessage',
+    description: 'Pagination of messages.'
+  })
+  async pagination(
+    @Args() args: PaginationMessageArgs,
+    @CurrentUser() user: UserPayload
+  ): Promise<PaginationMessage> {
+    return await this.messageService.pagination(args, user.id)
+  }
+
+  @Mutation(() => Message, {
+    name: 'CreateMessage',
+    description: 'Create a new message.'
+  })
+  async create(
+    @Args('input') input: CreateMessageInput,
+    @CurrentUser() user: UserPayload
+  ): Promise<Message> {
+    return await this.messageService.create(input, user.id)
   }
 
   @Mutation(() => Message, {
@@ -87,6 +113,20 @@ export class MessageResolver {
     return await this.messageService.delete(args.id, user.id)
   }
 
+  @Mutation(() => [String], {
+    name: 'ReadMessages',
+    description: 'Read messages in a conversation.'
+  })
+  async readMessages(
+    @Args() args: ReadMessagesArgs,
+    @CurrentUser() user: UserPayload
+  ): Promise<Message['id'][]> {
+    return await this.messageService.readMessagesConversation(
+      args.conversationId,
+      user.id
+    )
+  }
+
   @ResolveField(() => User, {
     name: 'user',
     description: 'The user who created the message.'
@@ -105,16 +145,5 @@ export class MessageResolver {
         id: message.conversationId
       }
     })
-  }
-
-  @Query(() => PaginationMessage, {
-    name: 'PaginationMessage',
-    description: 'Pagination of messages.'
-  })
-  async pagination(
-    @Args() args: PaginationMessageArgs,
-    @CurrentUser() user: UserPayload
-  ): Promise<PaginationMessage> {
-    return await this.messageService.pagination(args, user.id)
   }
 }

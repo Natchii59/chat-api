@@ -1,5 +1,13 @@
-import { ObjectType, Field } from '@nestjs/graphql'
-import { Column, Entity, JoinColumn, ManyToOne, RelationId } from 'typeorm'
+import { ObjectType, Field, ID } from '@nestjs/graphql'
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+  RelationId
+} from 'typeorm'
 
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { Node } from '@/database/entities/node.entity'
@@ -33,4 +41,24 @@ export class Message extends Node {
 
   @RelationId((message: Message) => message.conversation)
   conversationId: Conversation['id']
+
+  @ManyToMany(() => User, (user) => user.unreadMessages)
+  @JoinTable({
+    name: 'user_unread_messages',
+    joinColumn: {
+      name: 'message_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'user_id',
+      referencedColumnName: 'id'
+    }
+  })
+  unreadBy: User[]
+
+  @RelationId((message: Message) => message.unreadBy)
+  @Field(() => [ID], {
+    description: 'Ids of users who have not read the message'
+  })
+  unreadByIds: User['id'][]
 }

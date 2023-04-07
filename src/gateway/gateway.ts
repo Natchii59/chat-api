@@ -11,7 +11,6 @@ import {
 import { parse } from 'cookie'
 import { Server, Socket } from 'socket.io'
 
-import { GatewaySessionManager } from './gateway.session'
 import { AuthService } from '@/auth/auth.service'
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { Message } from '@/message/entities/message.entity'
@@ -26,12 +25,8 @@ import { Services } from '@/utils/constants'
     credentials: true
   }
 })
-export class GatewayGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class Gateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
-    @Inject(Services.GATEWAY_SESSION_MANAGER)
-    private readonly sessions: GatewaySessionManager,
     @Inject(Services.AUTH) private readonly authService: AuthService,
     @Inject(Services.USER) private readonly userService: UserService,
     @Inject(Services.MESSAGE)
@@ -60,10 +55,9 @@ export class GatewayGateway
       }
 
       socket.data.user = user
-      this.sessions.setUserSocket(user.id, socket)
+      socket.join(`user-${user.id}`)
 
       console.log('connected', socket.id)
-      console.log(this.sessions.getSockets().size, 'sessions')
     } catch (err) {
       return this.disconnect(socket)
     }
@@ -72,12 +66,20 @@ export class GatewayGateway
   handleDisconnect(socket: Socket) {
     console.log('disconnected', socket.id)
     this.disconnect(socket)
-    console.log(this.sessions.getSockets().size, 'sessions')
   }
 
-  private disconnect(socket: Socket) {
+  private async disconnect(socket: Socket) {
     if (socket.data.user) {
-      this.sessions.removeUserSocket(socket.data.user.id)
+      socket.leave(`user-${socket.data.user.id}`)
+
+      const friends = await this.userService.findAllFriends(socket.data.user.id)
+      if (friends.length) {
+        this.server
+          .to(friends.map((friend) => `user-${friend.id}`))
+          .emit('onFriendsStatusDisconnected', {
+            userId: socket.data.user.id
+          })
+      }
     }
     socket.disconnect()
   }
@@ -87,32 +89,30 @@ export class GatewayGateway
     @MessageBody()
     data: {
       message: Message
-      conversationId: Conversation['id']
-      user1Id: User['id']
-      user2Id: User['id']
     },
     @ConnectedSocket() socket: Socket
   ) {
     console.log(
-      `${data.message.user.username} send message to ${data.conversationId}`
+      `${data.message.user.username} send message to ${data.message.conversation.id}`
     )
 
-    this.server
-      .to(`conversation-${data.conversationId}`)
-      .emit('onMessageCreated', { message: data.message })
+    const otherUserId =
+      data.message.conversation.creator.id === data.message.user.id
+        ? data.message.conversation.recipient.id
+        : data.message.conversation.creator.id
 
-    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageCreatedSidebar', {
-      message: data.message
-    })
-    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageCreatedSidebar', {
-      message: {
-        ...data.message,
-        conversation: {
-          ...data.message.conversation,
-          user: socket.data.user
-        }
-      }
-    })
+    this.server
+      .to(`conversation-${data.message.conversation.id}`)
+      .emit('onMessageCreated', {
+        message: data.message
+      })
+
+    this.server
+      .to(`user-${socket.data.user.id}`)
+      .to(`user-${otherUserId}`)
+      .emit('onMessageCreatedSidebar', {
+        message: data.message
+      })
   }
 
   @SubscribeMessage('updateMessage')
@@ -120,27 +120,15 @@ export class GatewayGateway
     @MessageBody()
     data: {
       message: Message
-      conversationId: string
-      user1Id: string
-      user2Id: string
     }
   ) {
     console.log(
-      `${data.message.user.username} update message ${data.message.id} in conversation ${data.conversationId}`
+      `${data.message.user.username} update message ${data.message.id} in conversation ${data.message.conversation.id}`
     )
 
     this.server
-      .to(`conversation-${data.conversationId}`)
+      .to(`conversation-${data.message.conversation.id}`)
       .emit('onMessageUpdated', { message: data.message })
-
-    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageUpdatedSidebar', {
-      message: data.message,
-      conversationId: data.conversationId
-    })
-    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageUpdatedSidebar', {
-      message: data.message,
-      conversationId: data.conversationId
-    })
   }
 
   @SubscribeMessage('deleteMessage')
@@ -149,8 +137,6 @@ export class GatewayGateway
     data: {
       messageId: string
       conversationId: string
-      user1Id: string
-      user2Id: string
     },
     @ConnectedSocket() socket: Socket
   ) {
@@ -163,20 +149,6 @@ export class GatewayGateway
       .emit('onMessageDeleted', {
         messageId: data.messageId
       })
-
-    const newLastMessage = await this.messageService.findOne({
-      where: { conversation: { id: data.conversationId } },
-      order: { createdAt: 'DESC' }
-    })
-
-    this.sessions.getUserSocket(data.user1Id)?.emit('onMessageDeletedSidebar', {
-      conversationId: data.conversationId,
-      newLastMessage
-    })
-    this.sessions.getUserSocket(data.user2Id)?.emit('onMessageDeletedSidebar', {
-      conversationId: data.conversationId,
-      newLastMessage
-    })
   }
 
   @SubscribeMessage('onConversationJoin')
@@ -212,12 +184,9 @@ export class GatewayGateway
 
     socket.to(`conversation-${data.conversationId}`).emit('onTypingStart')
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
-    if (userSocket) {
-      userSocket.emit('onTypingStartConversation', {
-        conversationId: data.conversationId
-      })
-    }
+    this.server.to(`user-${data.userId}`).emit('onTypingStartConversation', {
+      conversationId: data.conversationId
+    })
   }
 
   @SubscribeMessage('onTypingStop')
@@ -231,12 +200,9 @@ export class GatewayGateway
 
     socket.to(`conversation-${data.conversationId}`).emit('onTypingStop')
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
-    if (userSocket) {
-      userSocket.emit('onTypingStopConversation', {
-        conversationId: data.conversationId
-      })
-    }
+    this.server.to(`user-${data.userId}`).emit('onTypingStopConversation', {
+      conversationId: data.conversationId
+    })
   }
 
   @SubscribeMessage('acceptFriendRequest')
@@ -248,21 +214,15 @@ export class GatewayGateway
       `${socket.data.user.username} accept friend request ${data.userId}`
     )
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
+    this.server.to(`user-${data.userId}`).emit('onFriendRequestAccepted', {
+      userId: socket.data.user.id
+    })
 
-    if (userSocket) {
-      userSocket.emit('onFriendRequestAccepted', {
-        userId: socket.data.user.id
-      })
-    }
-
-    const currentUserSocket = this.sessions.getUserSocket(socket.data.user.id)
-
-    if (currentUserSocket) {
-      currentUserSocket.emit('onFriendRequestAccepted', {
+    this.server
+      .to(`user-${socket.data.user.id}`)
+      .emit('onFriendRequestAccepted', {
         userId: data.userId
       })
-    }
   }
 
   @SubscribeMessage('declineFriendRequest')
@@ -274,21 +234,15 @@ export class GatewayGateway
       `${socket.data.user.username} decline friend request ${data.userId}`
     )
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
+    this.server.to(`user-${data.userId}`).emit('onFriendRequestDeclined', {
+      userId: socket.data.user.id
+    })
 
-    if (userSocket) {
-      userSocket.emit('onFriendRequestDeclined', {
-        userId: socket.data.user.id
-      })
-    }
-
-    const currentUserSocket = this.sessions.getUserSocket(socket.data.user.id)
-
-    if (currentUserSocket) {
-      currentUserSocket.emit('onFriendRequestDeclined', {
+    this.server
+      .to(`user-${socket.data.user.id}`)
+      .emit('onFriendRequestDeclined', {
         userId: data.userId
       })
-    }
   }
 
   @SubscribeMessage('cancelFriendRequest')
@@ -300,21 +254,15 @@ export class GatewayGateway
       `${socket.data.user.username} cancel friend request ${data.userId}`
     )
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
+    this.server.to(`user-${data.userId}`).emit('onFriendRequestCanceled', {
+      userId: socket.data.user.id
+    })
 
-    if (userSocket) {
-      userSocket.emit('onFriendRequestCanceled', {
-        userId: socket.data.user.id
-      })
-    }
-
-    const currentUserSocket = this.sessions.getUserSocket(socket.data.user.id)
-
-    if (currentUserSocket) {
-      currentUserSocket.emit('onFriendRequestCanceled', {
+    this.server
+      .to(`user-${socket.data.user.id}`)
+      .emit('onFriendRequestCanceled', {
         userId: data.userId
       })
-    }
   }
 
   @SubscribeMessage('sendFriendRequest')
@@ -326,21 +274,15 @@ export class GatewayGateway
       `${socket.data.user.username} send friend request ${data.user.username}`
     )
 
-    const userSocket = this.sessions.getUserSocket(data.user.id)
+    this.server.to(`user-${data.user.id}`).emit('onFriendRequestSentReceived', {
+      user: socket.data.user
+    })
 
-    if (userSocket) {
-      userSocket.emit('onFriendRequestSentReceived', {
-        user: socket.data.user
-      })
-    }
-
-    const currentUserSocket = this.sessions.getUserSocket(socket.data.user.id)
-
-    if (currentUserSocket) {
-      currentUserSocket.emit('onFriendRequestSentSended', {
+    this.server
+      .to(`user-${socket.data.user.id}`)
+      .emit('onFriendRequestSentSended', {
         user: data.user
       })
-    }
   }
 
   @SubscribeMessage('removeFriend')
@@ -350,21 +292,13 @@ export class GatewayGateway
   ) {
     console.log(`${socket.data.user.username} remove friend ${data.userId}`)
 
-    const userSocket = this.sessions.getUserSocket(data.userId)
+    this.server.to(`user-${data.userId}`).emit('onFriendRemoved', {
+      userId: socket.data.user.id
+    })
 
-    if (userSocket) {
-      userSocket.emit('onFriendRemoved', {
-        userId: socket.data.user.id
-      })
-    }
-
-    const currentUserSocket = this.sessions.getUserSocket(socket.data.user.id)
-
-    if (currentUserSocket) {
-      currentUserSocket.emit('onFriendRemoved', {
-        userId: data.userId
-      })
-    }
+    this.server.to(`user-${socket.data.user.id}`).emit('onFriendRemoved', {
+      userId: data.userId
+    })
   }
 
   @SubscribeMessage('createConversation')
@@ -372,15 +306,13 @@ export class GatewayGateway
     @MessageBody() data: { conversation: Conversation }
   ) {
     console.log(
-      `${data.conversation.user1.username} create conversation with ${data.conversation.user2.username}`
+      `${data.conversation.creator.username} create conversation with ${data.conversation.recipient.username}`
     )
 
-    this.sessions
-      .getUserSocket(data.conversation.user1.id)
-      ?.emit('onConversationCreated', { conversation: data.conversation })
-    this.sessions
-      .getUserSocket(data.conversation.user2.id)
-      ?.emit('onConversationCreated', { conversation: data.conversation })
+    this.server
+      .to(`user-${data.conversation.creator.id}`)
+      .to(`user-${data.conversation.recipient.id}`)
+      .emit('onConversationCreated', { conversation: data.conversation })
   }
 
   @SubscribeMessage('getFriendsStatus')
@@ -388,11 +320,21 @@ export class GatewayGateway
     @MessageBody() data: { userIds: string[] },
     @ConnectedSocket() socket: Socket
   ) {
-    const friendsStatusIds = this.sessions
-      .getSocketsByIds(data.userIds)
-      .map((s) => s.data.user.id)
+    try {
+      console.log(`${socket.data.user.username} get friends status`)
 
-    socket.emit('onFriendsStatus', { friendsStatusIds })
+      const friendsStatusIds = data.userIds
+        .map((id) => {
+          return this.server.sockets.adapter.rooms.get(`user-${id}`) ? id : null
+        })
+        .filter((id) => id !== null)
+
+      socket.emit('onFriendsStatus', { friendsStatusIds })
+
+      return true
+    } catch (error) {
+      return false
+    }
   }
 
   @SubscribeMessage('onConnected')
@@ -400,13 +342,18 @@ export class GatewayGateway
     @MessageBody() data: { userIds: string[] },
     @ConnectedSocket() socket: Socket
   ) {
-    data.userIds.forEach((userId) => {
-      const userSocket = this.sessions.getUserSocket(userId)
-      if (userSocket) {
-        userSocket.emit('onFriendsStatusConnected', {
+    try {
+      console.log(`${socket.data.user.username} connected`)
+
+      this.server
+        .to(data.userIds.map((id) => `user-${id}`))
+        .emit('onFriendsStatusConnected', {
           userId: socket.data.user.id
         })
-      }
-    })
+
+      return true
+    } catch (error) {
+      return false
+    }
   }
 }

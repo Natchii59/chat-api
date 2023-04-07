@@ -1,4 +1,3 @@
-import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo'
 import {
   MiddlewareConsumer,
@@ -37,15 +36,14 @@ import { join } from 'path'
         password: configService.getOrThrow('DB_PASSWORD'),
         database: configService.getOrThrow('DB_DATABASE'),
         synchronize: configService.getOrThrow('DB_SYNCHRONIZE') === 'true',
-        entities: [join(__dirname, '**', '*.entity.{ts,js}')]
+        entities: [join(__dirname, '**', '*.entity.{ts,js}')],
+        subscribers: [join(__dirname, '**', '*.subscriber.{ts,js}')]
       })
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      playground: false,
       autoSchemaFile: 'schema.gql',
       fieldResolverEnhancers: ['guards'],
-      plugins: [ApolloServerPluginLandingPageLocalDefault()],
       context: ({ req, res }) => ({ req, res }),
       formatError: (error) => {
         if (error.extensions.originalError) {

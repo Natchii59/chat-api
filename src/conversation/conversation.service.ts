@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { orderBy } from 'lodash'
 import { FindOneOptions, Repository } from 'typeorm'
 
 import {
@@ -31,18 +30,18 @@ export class ConversationService {
     const findConversation = await this.conversationRepository.findOne({
       where: [
         {
-          user1: {
+          creator: {
             id: userId
           },
-          user2: {
+          recipient: {
             id: input.userId
           }
         },
         {
-          user1: {
+          creator: {
             id: input.userId
           },
-          user2: {
+          recipient: {
             id: userId
           }
         }
@@ -81,8 +80,8 @@ export class ConversationService {
     }
 
     const conversation = this.conversationRepository.create({
-      user1: { id: userId },
-      user2: { id: input.userId }
+      creator: { id: userId },
+      recipient: { id: input.userId }
     })
 
     return {
@@ -107,57 +106,15 @@ export class ConversationService {
   async getUserConversations(
     userId: User['id']
   ): Promise<Conversation[] | null> {
-    const conversations = await this.conversationRepository.find({
-      where: [
-        {
-          user1: {
-            id: userId
-          }
-        },
-        {
-          user2: {
-            id: userId
-          }
-        }
-      ],
-      relations: ['closedBy']
-    })
-
-    const data = await Promise.all(
-      conversations
-        .filter(
-          (conversation) =>
-            !conversation.closedBy.some((user) => user.id === userId)
-        )
-        .map(async (conversation) => {
-          const lastMessage = await this.messageService.findOne({
-            where: {
-              conversation: {
-                id: conversation.id
-              }
-            },
-            order: {
-              createdAt: 'DESC'
-            }
-          })
-
-          const sortedDate = lastMessage
-            ? lastMessage.createdAt
-            : conversation.createdAt
-
-          return {
-            ...conversation,
-            sortedDate
-          }
-        })
-    )
-
-    const sortedConversation = orderBy(data, 'sortedDate', 'desc')
-
-    return sortedConversation.map((conversation) => {
-      delete conversation.sortedDate
-      return conversation
-    })
+    return await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .where('creator_id = :userId', { userId })
+      .orWhere('recipient_id = :userId', { userId })
+      .orderBy(
+        'COALESCE(conversation.lastMessageSentAt, conversation.createdAt)',
+        'DESC'
+      )
+      .getMany()
   }
 
   async closeConversation(

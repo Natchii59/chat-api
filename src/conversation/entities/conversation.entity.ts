@@ -1,5 +1,6 @@
-import { ObjectType } from '@nestjs/graphql'
+import { Field, ObjectType } from '@nestjs/graphql'
 import {
+  Column,
   Entity,
   JoinColumn,
   JoinTable,
@@ -19,23 +20,27 @@ export class Conversation extends Node {
   @ManyToOne(() => User, (user) => user.conversations, {
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'user1_id' })
-  user1: User
+  @JoinColumn({ name: 'creator_id' })
+  creator: User
 
-  @RelationId((conversation: Conversation) => conversation.user1)
-  user1Id: User['id']
+  @RelationId((conversation: Conversation) => conversation.creator)
+  creatorId: User['id']
 
   @ManyToOne(() => User, (user) => user.conversations, {
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'user2_id' })
-  user2: User
+  @JoinColumn({ name: 'recipient_id' })
+  recipient: User
 
-  @RelationId((conversation: Conversation) => conversation.user2)
-  user2Id: User['id']
+  @RelationId((conversation: Conversation) => conversation.recipient)
+  recipientId: User['id']
 
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[]
+
+  @Column({ name: 'last_message_sent_at', nullable: true })
+  @Field(() => Date, { nullable: true })
+  lastMessageSentAt?: Date
 
   @ManyToMany(() => User, (user) => user.closedConversations, {
     onDelete: 'CASCADE'

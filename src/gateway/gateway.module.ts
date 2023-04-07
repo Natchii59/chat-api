@@ -1,13 +1,11 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 
-import { GatewayGateway } from './gateway'
-import { GatewaySessionManager } from './gateway.session'
+import { Gateway } from './gateway'
 import { AuthModule } from '@/auth/auth.module'
 import { Conversation } from '@/conversation/entities/conversation.entity'
 import { MessageModule } from '@/message/message.module'
 import { UserModule } from '@/user/user.module'
-import { Services } from '@/utils/constants'
 
 @Module({
   imports: [
@@ -16,12 +14,6 @@ import { Services } from '@/utils/constants'
     UserModule,
     MessageModule
   ],
-  providers: [
-    GatewayGateway,
-    {
-      provide: Services.GATEWAY_SESSION_MANAGER,
-      useClass: GatewaySessionManager
-    }
-  ]
+  providers: [Gateway]
 })
 export class GatewayModule {}

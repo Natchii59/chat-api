@@ -121,7 +121,7 @@ export class UserService {
     )
   }
 
-  async findAllReceivedRequests(id: User['id']): Promise<User[]> {
+  async findAllReceivedRequestsFriends(id: User['id']): Promise<User[]> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['receivedRequests']
@@ -134,7 +134,7 @@ export class UserService {
     )
   }
 
-  async findAllSentRequests(id: User['id']): Promise<User[]> {
+  async findAllSentRequestsFriends(id: User['id']): Promise<User[]> {
     const user = await this.userRepository.findOne({
       where: { id },
       relations: ['sentRequests']

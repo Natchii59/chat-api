@@ -1,4 +1,4 @@
-import { Inject, ForbiddenException, UseGuards } from '@nestjs/common'
+import { Inject, UseGuards } from '@nestjs/common'
 import {
   Resolver,
   Query,
@@ -18,8 +18,6 @@ import { User } from './entities/user.entity'
 import { UserService } from './user.service'
 import { UserPayload } from '@/auth/dto/payload-user.dto'
 import { CurrentUser, JwtAuthGuard } from '@/auth/guards/jwt.guard'
-import { ConversationService } from '@/conversation/conversation.service'
-import { Conversation } from '@/conversation/entities/conversation.entity'
 import { Image } from '@/image/entities/image.entity'
 import { ImageService } from '@/image/image.service'
 import { Services } from '@/utils/constants'
@@ -30,8 +28,6 @@ import { Public } from '@/utils/decorators/public.decorator'
 export class UserResolver {
   constructor(
     @Inject(Services.USER) private readonly userService: UserService,
-    @Inject(Services.CONVERSATION)
-    private readonly conversationService: ConversationService,
     @Inject(Services.IMAGE)
     private readonly imageService: ImageService
   ) {}
@@ -46,6 +42,30 @@ export class UserResolver {
     return await this.userService.findOne({
       where: { ...input }
     })
+  }
+
+  @Query(() => [User], {
+    name: 'UserFriends',
+    description: 'Get all friends of a user'
+  })
+  async friends(@CurrentUser() user: User): Promise<User[]> {
+    return await this.userService.findAllFriends(user.id)
+  }
+
+  @Query(() => [User], {
+    name: 'UserReceivedRequestsFriends',
+    description: 'Get all received requests of a user'
+  })
+  async receivedRequests(@CurrentUser() user: User): Promise<User[]> {
+    return await this.userService.findAllReceivedRequestsFriends(user.id)
+  }
+
+  @Query(() => [User], {
+    name: 'UserSentRequestsFriends',
+    description: 'Get all sent requests of a user'
+  })
+  async userSentRequestsFriends(@CurrentUser() user: User): Promise<User[]> {
+    return await this.userService.findAllSentRequestsFriends(user.id)
   }
 
   @Mutation(() => User, {
@@ -122,55 +142,6 @@ export class UserResolver {
     return await this.userService.removeFriend(user.id, args.id)
   }
 
-  @ResolveField(() => [User], {
-    name: 'friends',
-    description: 'Get all friends of a user',
-    nullable: true
-  })
-  async friends(
-    @Parent() user: User,
-    @CurrentUser() currentUser: User
-  ): Promise<User[]> {
-    if (user.id !== currentUser.id)
-      throw new ForbiddenException('You are not allowed to access friends')
-
-    return await this.userService.findAllFriends(user.id)
-  }
-
-  @ResolveField(() => [User], {
-    name: 'receivedRequests',
-    description: 'Get all received requests of a user',
-    nullable: true
-  })
-  async receivedRequests(
-    @Parent() user: User,
-    @CurrentUser() currentUser: User
-  ): Promise<User[]> {
-    if (user.id !== currentUser.id)
-      throw new ForbiddenException(
-        'You are not allowed to access received requests'
-      )
-
-    return await this.userService.findAllReceivedRequests(user.id)
-  }
-
-  @ResolveField(() => [User], {
-    name: 'sentRequests',
-    description: 'Get all sent requests of a user',
-    nullable: true
-  })
-  async sentRequests(
-    @Parent() user: User,
-    @CurrentUser() currentUser: User
-  ): Promise<User[]> {
-    if (user.id !== currentUser.id)
-      throw new ForbiddenException(
-        'You are not allowed to access sent requests'
-      )
-
-    return await this.userService.findAllSentRequests(user.id)
-  }
-
   @Public()
   @ResolveField(() => Image, {
     name: 'avatar',
@@ -183,22 +154,5 @@ export class UserResolver {
     return await this.imageService.findOne({
       where: { id: user.avatarId }
     })
-  }
-
-  @ResolveField(() => [Conversation], {
-    name: 'conversations',
-    description: 'Get all conversations of a user',
-    nullable: true
-  })
-  async conversations(
-    @Parent() user: User,
-    @CurrentUser() currentUser: User
-  ): Promise<Conversation[]> {
-    if (user.id !== currentUser.id)
-      throw new ForbiddenException(
-        'You are not allowed to access conversations'
-      )
-
-    return await this.conversationService.getUserConversations(user.id)
   }
 }
