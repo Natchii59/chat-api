@@ -67,6 +67,19 @@ export class MessageService {
       unreadBy: [{ id: otherUser.id }]
     })
 
+    if (input.replyToId) {
+      const replyTo = await this.messageRepository.findOne({
+        where: {
+          id: input.replyToId,
+          conversation: { id: conversation.id }
+        }
+      })
+
+      if (!replyTo) throw new MessageNotFoundException()
+
+      message.replyTo = replyTo
+    }
+
     if (conversation.closedBy.some((user) => user.id === otherUser.id)) {
       conversation.closedBy = conversation.closedBy.filter(
         (user) => user.id !== otherUser.id

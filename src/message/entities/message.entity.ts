@@ -6,6 +6,7 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   RelationId
 } from 'typeorm'
 
@@ -61,4 +62,17 @@ export class Message extends Node {
     description: 'Ids of users who have not read the message'
   })
   unreadByIds: User['id'][]
+
+  @ManyToOne(() => Message, (message) => message.replies, {
+    nullable: true,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'reply_to_id' })
+  replyTo: Message
+
+  @RelationId((message: Message) => message.replyTo)
+  replyToId: Message['id']
+
+  @OneToMany(() => Message, (message) => message.replyTo)
+  replies: Message[]
 }

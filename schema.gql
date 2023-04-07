@@ -26,6 +26,9 @@ type Message {
 
   """The conversation the message belongs to."""
   conversation: Conversation!
+
+  """The message this message is a reply to."""
+  replyTo: Message
 }
 
 """
@@ -321,6 +324,9 @@ input CreateMessageInput {
 
   """ID of the conversation"""
   conversationId: ID!
+
+  """ID of the message to reply to"""
+  replyToId: ID
 }
 
 input UpdateMessageInput {

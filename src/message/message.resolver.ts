@@ -146,4 +146,21 @@ export class MessageResolver {
       }
     })
   }
+
+  @ResolveField(() => Message, {
+    name: 'replyTo',
+    description: 'The message this message is a reply to.',
+    nullable: true
+  })
+  async replyTo(@Parent() message: Message): Promise<Message | null> {
+    if (!message.replyToId) return null
+    return await this.messageService.findOne({
+      where: {
+        id: message.replyToId,
+        conversation: {
+          id: message.conversationId
+        }
+      }
+    })
+  }
 }
